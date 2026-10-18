@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { PERIODS } from '../lib/finance';
 import type { Period } from '../lib/types';
 import { href, type Route } from '../router';
@@ -18,12 +18,17 @@ export const Icon = {
   close: (s?: number) => svg(<><path d="M6 6l12 12" /><path d="M18 6L6 18" /></>, s),
   chevron: (s?: number) => svg(<path d="M9 6l6 6-6 6" />, s),
   down: (s?: number) => svg(<path d="M6 9l6 6 6-6" />, s),
+  arrowUp: (s?: number) => <svg aria-hidden="true" width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5" /><path d="M5 12l7-7 7 7" /></svg>,
+  arrowDown: (s?: number) => <svg aria-hidden="true" width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14" /><path d="M19 12l-7 7-7-7" /></svg>,
+  trend: (s?: number) => svg(<path d="M3 17l6-6 4 4 8-8" />, s),
+  pie: (s?: number) => svg(<><circle cx="12" cy="12" r="9" /><path d="M12 3v9l6 4" /></>, s),
+  list: (s?: number) => svg(<><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></>, s),
   trash: (s?: number) => svg(<><path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></>, s),
 };
 
-export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+export function PeriodPicker({ value, onChange, light, wide }: { value: Period; onChange: (p: Period) => void; light?: boolean; wide?: boolean }) {
   return (
-    <div role="group" aria-label="Período" className="segmented">
+    <div role="group" aria-label="Período" className={wide ? 'chips' : `segmented${light ? ' light' : ''}`}>
       {PERIODS.map((p) => (
         <button key={p.id} type="button" aria-pressed={p.id === value} onClick={() => onChange(p.id)}>{p.label}</button>
       ))}
@@ -65,7 +70,16 @@ export function TabBar({ route }: { route: Route }) {
   );
 }
 
+/** itens da barra lateral do painel web, como no protótipo (Ativos e Lançamentos levam à tabela de ativos) */
+const SIDE = [
+  { key: 'home', label: 'Carteira', href: href.home, icon: Icon.home },
+  { key: 'analise', label: 'Análise', href: href.analise, icon: Icon.chart },
+  { key: 'ativos', label: 'Ativos', href: '#ativos', icon: Icon.pie },
+  { key: 'lancamentos', label: 'Lançamentos', href: '#ativos', icon: Icon.list },
+] as const;
+
 export function Sidebar({ route }: { route: Route }) {
+  const key = route.name === 'ativo' ? 'ativos' : route.name;
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -75,13 +89,16 @@ export function Sidebar({ route }: { route: Route }) {
         Fin Dash
       </div>
       <nav aria-label="Navegação principal">
-        {NAV.map((n) => (
-          <a key={n.key} href={n.href} aria-current={activeKey(route) === n.key ? 'page' : undefined}>
+        {SIDE.map((n) => (
+          <a key={n.key} href={n.href} aria-current={key === n.key ? 'page' : undefined}>
             {n.icon(18)}
             {n.label}
           </a>
         ))}
       </nav>
+      <a className="side-cta" href={href.lancar()}>+ Novo lançamento</a>
+      {/* Ajustes não aparece no protótipo web; fica discreto no rodapé da barra */}
+      <a className="side-foot" href={href.ajustes} aria-current={route.name === 'ajustes' ? 'page' : undefined}>{Icon.sliders(16)}Ajustes</a>
     </aside>
   );
 }
@@ -93,4 +110,17 @@ export function Legend({ color, dashed, children }: { color: string; dashed?: bo
       {children}
     </span>
   );
+}
+
+/** tela larga (PC): o layout do painel web do protótipo */
+export function useWide() {
+  const q = '(min-width: 1024px)';
+  const [wide, setWide] = useState(() => typeof matchMedia === 'function' && matchMedia(q).matches);
+  useEffect(() => {
+    const m = matchMedia(q);
+    const on = () => setWide(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return wide;
 }

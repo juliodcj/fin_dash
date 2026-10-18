@@ -20,7 +20,7 @@ export function App() {
     <div className={`app route-${route.name}`}>
       <Sidebar route={route} />
       <main className="main">{screen}</main>
-      {route.name !== 'lancar' && <TabBar route={route} />}
+      {route.name !== 'lancar' && route.name !== 'ativo' && <TabBar route={route} />}
     </div>
   );
 }

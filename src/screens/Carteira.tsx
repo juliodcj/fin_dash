@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { ReturnCard } from '../components/returns';
-import { Icon } from '../components/ui';
+import { Icon, useWide } from '../components/ui';
 import { brl, brlSigned, pct, tone } from '../lib/format';
 import type { Period } from '../lib/types';
 import { href } from '../router';
 import { useApp } from '../state';
 import { colorFor, usePortfolio, useSubject } from '../useData';
 import { StatusLine } from './common';
+import { Painel } from './Painel';
 
 export function Carteira() {
   const { trades, settings, loadSample } = useApp();
@@ -15,8 +16,10 @@ export function Carteira() {
   const [period, setPeriod] = useState<Period>(settings.defaultPeriod);
   const tickers = p.holdings.map((h) => h.ticker);
   const hasTargets = Object.keys(settings.targets).length > 0;
+  const wide = useWide();
 
   if (!trades.length) return <Empty onSample={loadSample} />;
+  if (wide) return <Painel />;
 
   return (
     <div className="screen home">
@@ -32,7 +35,7 @@ export function Carteira() {
         <span className="label">Patrimônio</span>
         <span className="hero-value">{brl(p.total)}</span>
         <div className={`today ${tone(p.today)}`}>
-          <span className="chip">{pct(p.todayPct)} hoje</span>
+          <span className="chip">{p.today < 0 ? Icon.arrowDown(12) : Icon.arrowUp(12)}{pct(p.todayPct)} hoje</span>
           <span>{brlSigned(p.today)}</span>
         </div>
         <div className="duo">
@@ -86,7 +89,7 @@ export function Carteira() {
           {p.holdings.length === 0 && <p className="muted pad">Nenhuma posição aberta.</p>}
         </div>
         <p className="footnote">
-          {settings.demo ? 'Dados de demonstração (simulados)' : 'Cotações: Yahoo Finance (último fechamento) · CDI e IPCA: Banco Central'} · rentabilidade por cotas (TWR), sem IR
+          {settings.demo ? 'Dados de demonstração (simulados)' : 'Cotações: Yahoo Finance (último fechamento) · CDI: Ipeadata · IPCA: IBGE'} · rentabilidade por cotas (TWR), sem IR
         </p>
       </section>
     </div>

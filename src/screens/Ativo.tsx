@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ReturnCard } from '../components/returns';
 import { Icon } from '../components/ui';
+import { describe } from '../lib/assets';
 import { dateBR } from '../lib/dates';
 import { brl, brlSigned, pct, qty, tone } from '../lib/format';
 import type { Period } from '../lib/types';
@@ -8,7 +9,7 @@ import { href } from '../router';
 import { useApp } from '../state';
 import { colorFor, usePortfolio, useSubject } from '../useData';
 
-const SHOW = 5;
+const SHOW = 3;
 
 export function Ativo({ ticker }: { ticker: string }) {
   const { trades, settings, market, deleteTrade } = useApp();
@@ -41,7 +42,7 @@ export function Ativo({ ticker }: { ticker: string }) {
 
   return (
     <div className="screen asset">
-      <BackHeader title={ticker} sub={[quote?.name, h ? `${pct(h.weight, 1, false)} da carteira` : 'posição zerada'].filter(Boolean).join(' · ')} />
+      <BackHeader title={ticker} sub={`${describe(ticker, quote?.name)} · ${h ? `${pct(h.weight, 1, false)} da carteira` : 'posição zerada'}`} />
 
       <section className="hero">
         <span className="label">Cotação</span>
@@ -67,7 +68,7 @@ export function Ativo({ ticker }: { ticker: string }) {
           {pos && pos.realized !== 0 && (
             <div className="kv-line"><span>Lucro realizado em vendas</span><b className={tone(pos.realized)}>{brlSigned(pos.realized)}</b></div>
           )}
-          {totalIncome > 0 && income > 0 && <p className="muted small">Responsável por {pct(income / totalIncome, 0, false)} do rendimento da carteira.</p>}
+          {totalIncome > 0 && income > 0 && <p className="muted small">Responsável por {pct(income / totalIncome, 0, false)} do lucro da carteira.</p>}
         </section>
 
         {subject ? (
@@ -83,21 +84,20 @@ export function Ativo({ ticker }: { ticker: string }) {
           </div>
           <div className="list">
             {shown.map((t) => (
-              <div key={t.id} className="row trade">
+              // tocar no lançamento oferece a exclusão (o protótipo não tem botão de lixeira)
+              <button
+                key={t.id}
+                type="button"
+                className="row trade"
+                title="Excluir lançamento"
+                onClick={() => { if (confirm(`Excluir ${t.side === 'buy' ? 'compra' : 'venda'} de ${qty(t.qty)} ${ticker} em ${dateBR(t.date)}?`)) deleteTrade(t.id); }}
+              >
                 <span className="row-main">
                   <span className="row-title small-title">{t.side === 'buy' ? 'Compra' : 'Venda'} · {qty(t.qty)} {t.qty === 1 ? 'cota' : 'cotas'}</span>
                   <span className="row-sub">{dateBR(t.date)} · {brl(t.price)}{t.fees ? ` · custos ${brl(t.fees)}` : ''}</span>
                 </span>
                 <span className="row-value">{brl(t.qty * t.price + (t.side === 'buy' ? t.fees : -t.fees))}</span>
-                <button
-                  type="button"
-                  className="icon-btn plain"
-                  aria-label={`Excluir lançamento de ${dateBR(t.date)}`}
-                  onClick={() => { if (confirm(`Excluir ${t.side === 'buy' ? 'compra' : 'venda'} de ${qty(t.qty)} ${ticker} em ${dateBR(t.date)}?`)) deleteTrade(t.id); }}
-                >
-                  {Icon.trash(18)}
-                </button>
-              </div>
+              </button>
             ))}
             {own.length > SHOW && (
               <button type="button" className="list-more" onClick={() => setAll(!all)}>

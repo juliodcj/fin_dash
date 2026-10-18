@@ -4,17 +4,34 @@ import { isAnnualized, PERIODS, shownReturn, stats, type Stats } from '../lib/fi
 import { pct, ratio, signed, tone } from '../lib/format';
 import type { Period } from '../lib/types';
 import type { Subject } from '../useData';
-import { LineChart, type ChartLine } from './charts';
+import { chartPoints, LineChart, type ChartLine } from './charts';
 import { Icon, Legend, PeriodPicker } from './ui';
 
-export const xLabelFor = (days: number) => (iso: string) => (days <= 200 ? dayMonth(iso) : monthLabel(iso.slice(0, 7)));
+export const xLabelFor = (days: number) => (iso: string) => (days <= 45 ? dayMonth(iso) : monthLabel(iso.slice(0, 7)));
 
 const CDI_COLOR = '#D9730D';
 const IPCA_COLOR = '#8A8F98';
 
-function rangeText(s: Stats, annualized: boolean) {
-  const from = s.days <= 200 ? dayMonth(s.start) : monthLabel(s.start.slice(0, 7));
-  return `desde ${from}${annualized ? ' · ao ano' : ''}`;
+/** texto do período no canto do cartão, como no protótipo */
+export function rangeText(s: Stats, annualized: boolean, variant: 'portfolio' | 'asset' = 'portfolio') {
+  let t: string;
+  if (s.period === '1M') t = 'últimos 30 dias';
+  else if (s.period === 'YTD') t = `${s.end.slice(0, 4)} até hoje`;
+  else if (s.period === 'MAX') t = variant === 'asset' ? 'desde a 1ª compra' : `desde ${monthLabel(s.start.slice(0, 7))}`;
+  else t = `${monthLabel(s.start.slice(0, 7))} → hoje`;
+  return annualized ? `${t} · ao ano` : t;
+}
+
+/** séries do cartão de rentabilidade, rebaseadas no início da janela e amostradas como no protótipo */
+export function chartData(subject: Subject, s: Stats, label: string, color: string, wide = false) {
+  const { series, bench } = subject;
+  const idx = chartPoints(series.dates, s.i0, s.i1);
+  const rebase = (arr: number[]) => idx.map((i) => arr[i] / arr[s.i0] - 1);
+  const lines: ChartLine[] = [{ key: 'main', label, values: rebase(series.index), color, width: wide ? 2.75 : 2.5 }];
+  if (bench.hasCdi) lines.push({ key: 'cdi', label: 'CDI', values: rebase(bench.cdi), color: CDI_COLOR, width: wide ? 2 : 1.75 });
+  if (bench.hasIpca) lines.push({ key: 'ipca', label: 'IPCA', values: rebase(bench.ipca), color: IPCA_COLOR, dashed: true, width: 1.5 });
+  const fmt = xLabelFor(s.days);
+  return { labels: idx.map((i) => fmt(series.dates[i])), lines };
 }
 
 function realText(s: Stats) {
@@ -35,27 +52,20 @@ interface Props {
 
 export function ReturnCard({ subject, label, color, period, onPeriod, annualize, variant }: Props) {
   const [open, setOpen] = useState(false);
-  const { series, bench } = subject;
-  const s = stats(series, bench, period);
+  const s = stats(subject.series, subject.bench, period);
   const ann = isAnnualized(annualize, s.days);
   const show = (r: number | null) => shownReturn(r, s.days, annualize);
   const real = realText(s);
-
-  const rebase = (arr: number[]) => arr.slice(s.i0, s.i1 + 1).map((v) => v / arr[s.i0] - 1);
-  const lines: ChartLine[] = [{ key: 'main', label, values: rebase(series.index), color, width: 2.5 }];
-  if (bench.hasCdi) lines.push({ key: 'cdi', label: 'CDI', values: rebase(bench.cdi), color: CDI_COLOR });
-  if (bench.hasIpca) lines.push({ key: 'ipca', label: 'IPCA', values: rebase(bench.ipca), color: IPCA_COLOR, dashed: true, width: 1.5 });
-
+  const chart = chartData(subject, s, label, color);
   const ddWhen = s.drawdown.trough ? `fundo em ${xLabelFor(s.days)(s.drawdown.trough)}` : 'sem queda no período';
-  const monthsHint = s.months.length ? `de ${s.months.length} ${s.months.length === 1 ? 'mês' : 'meses'}` : '';
 
   return (
     <section className="card returns">
       <div className="card-head">
         <h2>Rentabilidade</h2>
-        <span className="muted small">{rangeText(s, ann)}</span>
+        <span className="muted small">{rangeText(s, ann, variant)}</span>
       </div>
-      <PeriodPicker value={period} onChange={onPeriod} />
+      <PeriodPicker value={period} onChange={onPeriod} light />
       {s.truncated && period !== 'MAX' && (
         <p className="note">O histórico começa em {dayMonth(s.start)}; o período mostrado é menor que {PERIODS.find((p) => p.id === period)?.label}.</p>
       )}
@@ -86,7 +96,7 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
         </div>
       </div>
 
-      <LineChart dates={series.dates.slice(s.i0, s.i1 + 1)} lines={lines} xLabel={xLabelFor(s.days)} />
+      <LineChart labels={chart.labels} lines={chart.lines} />
 
       {variant === 'asset' ? (
         <div className="metrics3">
@@ -105,9 +115,9 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
               <Metric label="Max drawdown" value={pct(s.drawdown.value)} cls="neg" hint={ddWhen} />
               <Metric label="Volatilidade a.a." value={s.vol == null ? '—' : pct(s.vol, 1, false)} hint={s.vol == null ? 'período curto demais' : 'oscilação diária'} />
               <Metric label="Índice de Sharpe" value={signed(s.sharpe)} cls={tone(s.sharpe)} hint={s.sharpe == null ? 'a partir de 6M' : 'retorno vs CDI ÷ risco'} />
-              <Metric label="Meses positivos" value={`${s.positive} ${monthsHint}`} hint="no período" />
-              <Metric label="Melhor mês" value={pct(s.best?.r)} cls={tone(s.best?.r)} hint={s.best ? monthLabel(s.best.month) : ''} />
-              <Metric label="Pior mês" value={pct(s.worst?.r)} cls={tone(s.worst?.r)} hint={s.worst ? monthLabel(s.worst.month) : ''} />
+              <Metric label="Meses positivos" value={`${s.positive} de ${s.months.length}`} hint="no período" />
+              <Metric label="Melhor mês" value={pct(s.best?.r)} cls="pos" hint={s.best ? monthLabel(s.best.month) : ''} />
+              <Metric label="Pior mês" value={pct(s.worst?.r)} cls={s.worst && s.worst.r < 0 ? 'neg' : 'pos'} hint={s.worst ? monthLabel(s.worst.month) : ''} />
             </div>
           )}
         </div>
@@ -162,4 +172,16 @@ export function PeriodTable({ subject, label, annualize }: { subject: Subject; l
       </table>
     </div>
   );
+}
+
+/** classe da cor do mapa de retornos mensais */
+export function heat(r: number | null) {
+  if (r == null) return 'h-none';
+  if (r >= 0.03) return 'h-p3';
+  if (r >= 0.01) return 'h-p2';
+  if (r > 0.0004) return 'h-p1';
+  if (r > -0.0004) return 'h-0';
+  if (r > -0.01) return 'h-n1';
+  if (r > -0.03) return 'h-n2';
+  return 'h-n3';
 }

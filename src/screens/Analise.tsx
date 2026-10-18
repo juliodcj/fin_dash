@@ -1,24 +1,13 @@
 import { useState } from 'react';
 import { DrawdownChart, FlowsChart } from '../components/charts';
-import { Metric, PeriodTable, xLabelFor } from '../components/returns';
+import { heat, Metric, PeriodTable } from '../components/returns';
 import { Icon } from '../components/ui';
 import { MESES, monthLabel } from '../lib/dates';
-import { monthlyFlows, stats, windowFor, yearTable } from '../lib/finance';
+import { monthlyFlows, stats, yearTable } from '../lib/finance';
 import { brl0, pct, signed, tone } from '../lib/format';
 import { href } from '../router';
 import { useApp } from '../state';
 import { colorFor, usePortfolio, useSubject } from '../useData';
-
-function heat(r: number | null) {
-  if (r == null) return 'h-none';
-  if (r >= 0.03) return 'h-p3';
-  if (r >= 0.01) return 'h-p2';
-  if (r > 0.0004) return 'h-p1';
-  if (r > -0.0004) return 'h-0';
-  if (r > -0.01) return 'h-n1';
-  if (r > -0.03) return 'h-n2';
-  return 'h-n3';
-}
 
 export function Analise() {
   const { trades, settings } = useApp();
@@ -63,12 +52,12 @@ export function Analise() {
   const flows = monthlyFlows(series);
   const last = flows[flows.length - 1];
   const income = last.value - last.invested;
-  const full = windowFor(series.dates, 'MAX');
-  const dd = stats(series, bench, 'MAX').drawdown;
+  const sMax = stats(series, bench, 'MAX');
+  const dd = sMax.drawdown;
   const s12 = stats(series, bench, '12M');
-  const avgMonth = s12.months.length ? s12.months.reduce((a, m) => a + m.r, 0) / s12.months.length : null;
+  // meses positivos e média mensal: desde o início, como no protótipo
+  const avgMonth = sMax.months.length ? sMax.months.reduce((a, m) => a + m.r, 0) / sMax.months.length : null;
   const years = yearTable(series, bench);
-  const fmtM = xLabelFor(full.days);
   const incomeRows = ticker ? [] : p.income.filter((x) => Math.abs(x.value) >= 0.5).sort((a, b) => b.value - a.value);
   const maxIncome = Math.max(...incomeRows.map((x) => Math.abs(x.value)), 1);
 
@@ -107,7 +96,7 @@ export function Analise() {
                 <div key={x.ticker} className="income-row">
                   <b>{x.ticker}</b>
                   <span className="bar"><span style={{ width: `${(Math.abs(x.value) / maxIncome) * 100}%`, background: x.value < 0 ? 'var(--neg)' : colorFor(x.ticker, holdTickers) }} /></span>
-                  <span className={`num ${tone(x.value)}`}>{brl0(x.value)}</span>
+                  <span className={`num ${x.value < 0 ? 'neg' : ''}`}>{brl0(x.value)}</span>
                 </div>
               ))}
             </div>
@@ -124,7 +113,7 @@ export function Analise() {
                 : 'Sem quedas desde o início'}
             </span>
           </div>
-          <DrawdownChart dates={series.dates} index={series.index} xLabel={fmtM} />
+          <DrawdownChart dates={series.dates} index={series.index} />
         </section>
 
         <section className="card">
@@ -133,7 +122,7 @@ export function Analise() {
             <div key={y.year} className="year">
               <div className="year-head">
                 <b>{y.year}</b>
-                <span className="muted small"><b className={`ink ${tone(y.total)}`}>{pct(y.total)}</b>{y.cdi != null ? ` · CDI ${pct(y.cdi)}` : ''}</span>
+                <span className="muted small"><b className="ink">{pct(y.total)}</b>{y.cdi != null ? ` · CDI ${pct(y.cdi)}` : ''}</span>
               </div>
               <div className="heat">
                 {y.months.map((r, i) => (
@@ -150,8 +139,8 @@ export function Analise() {
         <section className="metrics4">
           <div className="card mini"><Metric label="Volatilidade 12M" value={s12.vol == null ? '—' : `${pct(s12.vol, 1, false)} a.a.`} /></div>
           <div className="card mini"><Metric label="Sharpe 12M" value={signed(s12.sharpe)} cls={tone(s12.sharpe)} /></div>
-          <div className="card mini"><Metric label="Meses positivos 12M" value={`${s12.positive} de ${s12.months.length}`} /></div>
-          <div className="card mini"><Metric label="Média mensal 12M" value={pct(avgMonth)} cls={tone(avgMonth)} /></div>
+          <div className="card mini"><Metric label="Meses positivos" value={`${sMax.positive} de ${sMax.months.length}`} /></div>
+          <div className="card mini"><Metric label="Média mensal" value={pct(avgMonth)} cls={tone(avgMonth)} /></div>
         </section>
       </div>
     </div>
