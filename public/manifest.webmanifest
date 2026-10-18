@@ -1,0 +1,16 @@
+{
+  "name": "Fin Dash",
+  "short_name": "Fin Dash",
+  "description": "Rentabilidade da carteira da B3 contra CDI e IPCA",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F6F3",
+  "theme_color": "#F6F6F3",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,41 @@
+# Fin Dash
+
+Painel simples para acompanhar uma carteira da B3: você cadastra as compras e vendas (ticker, data, quantidade e preço) e o app calcula a rentabilidade atualizada e compara com CDI e IPCA.
+
+Feito primeiro para celular (testado na largura do Galaxy S23, 360 px), com layout próprio para telas a partir de 1024 px.
+
+## O que tem
+
+- **Carteira**: patrimônio, variação do dia, total investido e lucro; rentabilidade em 1M, 6M, 12M (padrão), 24M, ano e máximo contra CDI e IPCA, % do CDI, ganho real (IPCA + x% a.a., só para 12 meses ou mais) e gráfico. "Mais indicadores" traz max drawdown, volatilidade, índice de Sharpe, meses positivos e melhor/pior mês.
+- **Ativo**: posição (quantidade, preço médio, resultado, lucro realizado), a mesma análise de rentabilidade e a lista de lançamentos, com exclusão.
+- **Análise** (carteira ou um ativo, pela lista suspensa): tabela por período, aportes × rendimento mês a mês, drawdown, retornos mensais por ano e indicadores de 12 meses.
+- **Lançar**: compra ou venda com preço por cota digitado por você; vendas acima do saldo são bloqueadas.
+- **Ajustes**: anualizar períodos acima de 12 meses (ligado por padrão), período padrão, metas de alocação, token da brapi, modo demonstração, backup em arquivo e carteira exemplo (70% WRLD11 / 30% B5P211, aporte mensal de R$ 1.000 desde jan/24).
+
+## Dados
+
+- **Cotações**: [brapi.dev](https://brapi.dev). Crie um token gratuito e cole em Ajustes. O plano gratuito pode limitar o histórico disponível; se faltar histórico, o app avisa no topo da Carteira.
+- **CDI e IPCA**: API pública do Banco Central (SGS, séries 12 e 433), sem token.
+- **Modo demonstração**: cotações e índices simulados, para ver o app sem internet ou sem token.
+- Lançamentos, ajustes e cache de cotações ficam só no aparelho (localStorage). Use Ajustes › Backup para exportar.
+
+## Como calcula
+
+- Rentabilidade por cotas (TWR): o retorno de cada pregão é a média dos retornos dos ativos, ponderada pelo valor de cada posição no fechamento anterior. Aportes e vendas não distorcem o resultado. Usa o fechamento ajustado por proventos quando a fonte informa.
+- CDI acumulado pelos fatores diários; IPCA mensal distribuído pelos dias corridos do mês (mês ainda não divulgado fica estável).
+- Anualização: `(1 + r)^(365 / dias) − 1`, aplicada à carteira, ao CDI e ao IPCA quando o período passa de 12 meses e o ajuste está ligado. % do CDI usa sempre os valores acumulados.
+- Volatilidade: desvio-padrão dos retornos diários × √252. Sharpe: (retorno a.a. − CDI a.a.) ÷ volatilidade, a partir de 6 meses.
+- Preço médio inclui custos de compra; vendas realizam lucro pelo preço médio. Não considera IR.
+
+## Rodar
+
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm test         # testes dos cálculos
+npm run build    # gera dist/
+```
+
+## Publicar e instalar no celular
+
+O workflow `.github/workflows/ci.yml` roda testes e build em todo push e publica no GitHub Pages a cada push na `main`. Para ativar: no GitHub, **Settings › Pages › Source: GitHub Actions**. Depois abra o endereço no Chrome do celular e use **Adicionar à tela inicial**.
