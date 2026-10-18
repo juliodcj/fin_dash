@@ -45,6 +45,18 @@ export function Ajustes() {
 
       <section className="card">
         <h2>Rentabilidade</h2>
+        <div className="field">
+          <span className="toggle-label" id="method-label">Método de cálculo</span>
+          <div role="group" aria-labelledby="method-label" className="segmented two">
+            <button type="button" aria-pressed={settings.method === 'twr'} onClick={() => updateSettings({ method: 'twr' })}>TWR · por cotas</button>
+            <button type="button" aria-pressed={settings.method === 'mwrr'} onClick={() => updateSettings({ method: 'mwrr' })}>MWRR · TIR</button>
+          </div>
+          <span className="hint">
+            {settings.method === 'twr'
+              ? 'Mede o desempenho dos ativos: aportes e resgates não mudam o resultado. É o padrão de fundos e o mais justo para comparar com CDI e IPCA.'
+              : 'Mede o rendimento do seu dinheiro, pesando quanto estava investido em cada momento (TIR dos aportes). CDI e IPCA recebem os mesmos aportes nas mesmas datas. Drawdown, volatilidade, Sharpe e retornos mensais seguem por cotas.'}
+          </span>
+        </div>
         <Toggle
           id="annualize"
           checked={settings.annualize}

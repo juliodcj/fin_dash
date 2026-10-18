@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { DrawdownChart, FlowsChart } from '../components/charts';
 import { heat, Metric, PeriodTable } from '../components/returns';
 import { Icon } from '../components/ui';
-import { MESES, monthLabel } from '../lib/dates';
+import { dateBR, MESES, monthLabel } from '../lib/dates';
 import { monthlyFlows, stats, yearTable } from '../lib/finance';
 import { brl0, pct, signed, tone } from '../lib/format';
 import { href } from '../router';
@@ -67,7 +67,7 @@ export function Analise() {
       <div className="analysis-grid">
         <section className="card flush">
           <h2 className="pad-x">Rentabilidade por período</h2>
-          <PeriodTable subject={subject} label={label} annualize={settings.annualize} />
+          <PeriodTable subject={subject} label={label} annualize={settings.annualize} method={settings.method} />
           <p className="table-note">
             IPCA + a.a.: ganho acima da inflação por ano, calculado para períodos de 12 meses ou mais.
             {settings.annualize ? ' Linhas marcadas com a.a. estão anualizadas.' : ''}
@@ -113,7 +113,7 @@ export function Analise() {
                 : 'Sem quedas desde o início'}
             </span>
           </div>
-          <DrawdownChart dates={series.dates} index={series.index} />
+          <DrawdownChart dates={series.dates} tips={series.dates.map(dateBR)} index={series.index} />
         </section>
 
         <section className="card">

@@ -39,6 +39,7 @@ export function clearAll() {
 export const DEFAULT_SETTINGS: Settings = {
   annualize: true,
   defaultPeriod: '12M',
+  method: 'twr',
   demo: false,
   targets: {},
 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annualize, buildSeries, cdiFactors, ipcaFactors, isAnnualized, maxDrawdown, monthlyReturns, niceAxis, positions, qtyAt, stats, bench, windowFor, yearTable } from './finance';
+import { annualize, buildSeries, mwrr, xirr, cdiFactors, ipcaFactors, isAnnualized, maxDrawdown, monthlyReturns, niceAxis, positions, qtyAt, stats, bench, windowFor, yearTable } from './finance';
 import { parseNumberBR, pct } from './format';
 import type { PriceHistory, Trade } from './types';
 
@@ -143,5 +143,44 @@ describe('formatação', () => {
     expect(parseNumberBR('171.25')).toBe(171.25);
     expect(parseNumberBR('R$ 10,5')).toBe(10.5);
     expect(Number.isNaN(parseNumberBR('abc'))).toBe(true);
+  });
+});
+
+describe('MWRR (TIR)', () => {
+  it('xirr: R$ 100 que viram R$ 110 em um ano rendem 10% a.a.', () => {
+    expect(xirr([{ date: '2023-01-01', amount: -100 }, { date: '2024-01-01', amount: 110 }])).toBeCloseTo(0.1, 8);
+    expect(xirr([{ date: '2023-01-01', amount: -100 }])).toBeNull();
+  });
+
+  it('sem aportes no meio, MWRR = TWR', () => {
+    const prices = { AAAA11: hist('AAAA11', [['2024-01-02', 10], ['2024-03-01', 12], ['2024-06-03', 11]]) };
+    const s = buildSeries([trade({ qty: 10, price: 10 })], prices)!;
+    expect(mwrr(s, s.index, 0, 2)).toBeCloseTo(s.index[2] / s.index[0] - 1, 8);
+  });
+
+  it('pesa mais o período com mais dinheiro investido', () => {
+    // +10% com R$ 100, depois −10% com R$ 1.210: TWR −1%, MWRR bem pior
+    const prices = { AAAA11: hist('AAAA11', [['2024-01-02', 10], ['2024-02-01', 11], ['2024-03-01', 11], ['2024-04-01', 9.9]]) };
+    const trades = [trade({ date: '2024-01-02', qty: 10, price: 10 }), trade({ date: '2024-03-01', qty: 100, price: 11 })];
+    const s = buildSeries(trades, prices)!;
+    const b = bench(s, [], []);
+    const twr = stats(s, b, 'MAX');
+    const m = stats(s, b, 'MAX', 'mwrr');
+    expect(twr.ret).toBeCloseTo(-0.01, 8);
+    expect(m.ret).toBeLessThan(-0.05);
+    // indicadores de tempo seguem por cotas
+    expect(m.drawdown).toEqual(twr.drawdown);
+    expect(m.vol).toEqual(twr.vol);
+  });
+
+  it('CDI com os mesmos aportes nas mesmas datas', () => {
+    const prices = { AAAA11: hist('AAAA11', [['2024-01-02', 10], ['2024-01-03', 10], ['2024-01-04', 10]]) };
+    const trades = [trade({ date: '2024-01-02', qty: 10, price: 10 }), trade({ date: '2024-01-03', qty: 10, price: 10 })];
+    const s = buildSeries(trades, prices)!;
+    const b = bench(s, [{ date: '2024-01-03', rate: 0.01 }, { date: '2024-01-04', rate: 0.01 }], []);
+    const m = stats(s, b, 'MAX', 'mwrr');
+    // taxa de 1% ao dia sobre os dois aportes: 2,01% nos dois dias
+    expect(m.cdi).toBeCloseTo(0.0201, 6);
+    expect(m.ret).toBeCloseTo(0, 8);
   });
 });

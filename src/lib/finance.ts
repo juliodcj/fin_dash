@@ -1,5 +1,5 @@
 import { addMonths, daysBetween, daysInMonth } from './dates';
-import type { MonthRate, Period, PriceHistory, RatePoint, Trade } from './types';
+import type { Method, MonthRate, Period, PriceHistory, RatePoint, Trade } from './types';
 
 export const PERIODS: { id: Period; label: string }[] = [
   { id: '1M', label: '1M' },
@@ -276,6 +276,57 @@ export function monthlyReturns(dates: string[], index: number[], i0: number, i1:
   return out;
 }
 
+export interface CashFlow {
+  date: string;
+  /** do ponto de vista do investidor: aporte negativo, resgate e valor final positivos */
+  amount: number;
+}
+
+/** TIR anual (XIRR) por bisseção; null se os fluxos não mudam de sinal */
+export function xirr(flows: CashFlow[]): number | null {
+  const cf = flows.filter((f) => Math.abs(f.amount) > 1e-9);
+  if (cf.length < 2) return null;
+  const t0 = cf[0].date;
+  const t = cf.map((f) => daysBetween(t0, f.date) / 365);
+  const npv = (r: number) => cf.reduce((a, f, k) => a + f.amount / Math.pow(1 + r, t[k]), 0);
+  let lo = -0.9999;
+  let hi = 1;
+  while (npv(hi) > 0 && hi < 1e6) hi *= 2;
+  const fl = npv(lo);
+  const fh = npv(hi);
+  if (!Number.isFinite(fl) || !Number.isFinite(fh) || Math.sign(fl) === Math.sign(fh)) return null;
+  for (let k = 0; k < 200; k++) {
+    const mid = (lo + hi) / 2;
+    const fm = npv(mid);
+    if (Math.sign(fm) === Math.sign(fl)) lo = mid;
+    else hi = mid;
+    if (hi - lo < 1e-12) break;
+  }
+  return (lo + hi) / 2;
+}
+
+/**
+ * Rentabilidade ponderada pelo dinheiro (MWRR) entre i0 e i1, como retorno do período.
+ * Parte do patrimônio em i0, soma os aportes e resgates de cada dia e faz o saldo render
+ * pelo fator `growth` (o índice TWR da carteira, já com proventos, ou o CDI/IPCA para
+ * comparar com os mesmos aportes nas mesmas datas). A TIR resultante vale para o período.
+ */
+export function mwrr(series: Series, growth: number[], i0: number, i1: number): number | null {
+  if (i1 <= i0) return 0;
+  const { dates, value, invested } = series;
+  const flows: CashFlow[] = [{ date: dates[i0], amount: -value[i0] }];
+  let v = value[i0];
+  for (let i = i0 + 1; i <= i1; i++) {
+    const f = invested[i] - invested[i - 1];
+    v = v * (growth[i] / growth[i - 1]) + f;
+    if (f) flows.push({ date: dates[i], amount: -f });
+  }
+  flows.push({ date: dates[i1], amount: v });
+  const r = xirr(flows);
+  if (r == null) return null;
+  return Math.pow(1 + r, daysBetween(flows.find((f) => Math.abs(f.amount) > 1e-9)!.date, dates[i1]) / 365) - 1;
+}
+
 export interface Bench {
   cdi: number[];
   ipca: number[];
@@ -310,13 +361,21 @@ export interface Stats extends Window {
   positive: number;
 }
 
-export function stats(series: Series, b: Bench, period: Period): Stats {
+/**
+ * Indicadores do período. Com `method` = 'mwrr', rentabilidade, CDI, IPCA, % do CDI e ganho
+ * real usam a TIR com os mesmos aportes; drawdown, volatilidade, Sharpe e meses seguem por
+ * cotas (TWR), que é o que mede o comportamento ao longo do tempo.
+ */
+export function stats(series: Series, b: Bench, period: Period, method: Method = 'twr'): Stats {
   const w = windowFor(series.dates, period);
   const { i0, i1, days } = w;
   const idx = series.index.slice(i0, i1 + 1);
-  const ret = series.index[i1] / series.index[i0] - 1;
-  const cdi = b.hasCdi ? b.cdi[i1] / b.cdi[i0] - 1 : null;
-  const ipca = b.hasIpca ? b.ipca[i1] / b.ipca[i0] - 1 : null;
+  const twr = series.index[i1] / series.index[i0] - 1;
+  const twrCdi = b.hasCdi ? b.cdi[i1] / b.cdi[i0] - 1 : null;
+  const m = method === 'mwrr';
+  const ret = m ? mwrr(series, series.index, i0, i1) ?? twr : twr;
+  const cdi = !b.hasCdi ? null : m ? mwrr(series, b.cdi, i0, i1) : twrCdi;
+  const ipca = !b.hasIpca ? null : m ? mwrr(series, b.ipca, i0, i1) : b.ipca[i1] / b.ipca[i0] - 1;
   const vol = days >= 28 ? volatility(idx) : null;
   const longEnough = days >= 365;
   const months = monthlyReturns(series.dates, series.index, i0, i1);
@@ -336,7 +395,7 @@ export function stats(series: Series, b: Bench, period: Period): Stats {
     realAnnual: longEnough && ipca != null ? Math.pow((1 + ret) / (1 + ipca), 365 / days) - 1 : null,
     drawdown: maxDrawdown(series.dates.slice(i0, i1 + 1), idx),
     vol,
-    sharpe: days >= 180 && vol && cdi != null ? (annualize(ret, days) - annualize(cdi, days)) / vol : null,
+    sharpe: days >= 180 && vol && twrCdi != null ? (annualize(twr, days) - annualize(twrCdi, days)) / vol : null,
     months,
     best,
     worst,

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { dayMonth, monthLabel } from '../lib/dates';
-import { isAnnualized, PERIODS, shownReturn, stats, type Stats } from '../lib/finance';
+import { dateBR, dayMonth, monthLabel } from '../lib/dates';
+import { isAnnualized, mwrr, PERIODS, shownReturn, stats, type Stats } from '../lib/finance';
 import { pct, ratio, signed, tone } from '../lib/format';
-import type { Period } from '../lib/types';
+import type { Method, Period } from '../lib/types';
 import type { Subject } from '../useData';
 import { chartPoints, LineChart, type ChartLine } from './charts';
 import { Icon, Legend, PeriodPicker } from './ui';
@@ -13,25 +13,30 @@ const CDI_COLOR = '#D9730D';
 const IPCA_COLOR = '#8A8F98';
 
 /** texto do período no canto do cartão, como no protótipo */
-export function rangeText(s: Stats, annualized: boolean, variant: 'portfolio' | 'asset' = 'portfolio') {
+export function rangeText(s: Stats, annualized: boolean, variant: 'portfolio' | 'asset' = 'portfolio', method: Method = 'twr') {
   let t: string;
   if (s.period === '1M') t = 'últimos 30 dias';
   else if (s.period === 'YTD') t = `${s.end.slice(0, 4)} até hoje`;
   else if (s.period === 'MAX') t = variant === 'asset' ? 'desde a 1ª compra' : `desde ${monthLabel(s.start.slice(0, 7))}`;
   else t = `${monthLabel(s.start.slice(0, 7))} → hoje`;
-  return annualized ? `${t} · ao ano` : t;
+  return `${t}${annualized ? ' · ao ano' : ''}${method === 'mwrr' ? ' · MWRR' : ''}`;
 }
 
 /** séries do cartão de rentabilidade, rebaseadas no início da janela e amostradas como no protótipo */
-export function chartData(subject: Subject, s: Stats, label: string, color: string, wide = false) {
+export function chartData(subject: Subject, s: Stats, label: string, color: string, wide = false, method: Method = 'twr') {
   const { series, bench } = subject;
-  const idx = chartPoints(series.dates, s.i0, s.i1);
-  const rebase = (arr: number[]) => idx.map((i) => arr[i] / arr[s.i0] - 1);
+  const idx = chartPoints(s.i0, s.i1);
+  // TWR: índice rebaseado; MWRR: TIR acumulada do início da janela até cada ponto
+  const rebase = (arr: number[]) => {
+    if (method === 'twr') return idx.map((i) => arr[i] / arr[s.i0] - 1);
+    let last = 0;
+    return idx.map((i) => (last = mwrr(series, arr, s.i0, i) ?? last));
+  };
   const lines: ChartLine[] = [{ key: 'main', label, values: rebase(series.index), color, width: wide ? 2.75 : 2.5 }];
   if (bench.hasCdi) lines.push({ key: 'cdi', label: 'CDI', values: rebase(bench.cdi), color: CDI_COLOR, width: wide ? 2 : 1.75 });
   if (bench.hasIpca) lines.push({ key: 'ipca', label: 'IPCA', values: rebase(bench.ipca), color: IPCA_COLOR, dashed: true, width: 1.5 });
   const fmt = xLabelFor(s.days);
-  return { labels: idx.map((i) => fmt(series.dates[i])), lines };
+  return { labels: idx.map((i) => fmt(series.dates[i])), tips: idx.map((i) => dateBR(series.dates[i])), lines };
 }
 
 function realText(s: Stats) {
@@ -46,24 +51,25 @@ interface Props {
   period: Period;
   onPeriod: (p: Period) => void;
   annualize: boolean;
+  method: Method;
   /** carteira: indicadores em bloco recolhível; ativo: linha com 3 indicadores */
   variant: 'portfolio' | 'asset';
 }
 
-export function ReturnCard({ subject, label, color, period, onPeriod, annualize, variant }: Props) {
+export function ReturnCard({ subject, label, color, period, onPeriod, annualize, method, variant }: Props) {
   const [open, setOpen] = useState(false);
-  const s = stats(subject.series, subject.bench, period);
+  const s = stats(subject.series, subject.bench, period, method);
   const ann = isAnnualized(annualize, s.days);
   const show = (r: number | null) => shownReturn(r, s.days, annualize);
   const real = realText(s);
-  const chart = chartData(subject, s, label, color);
+  const chart = chartData(subject, s, label, color, false, method);
   const ddWhen = s.drawdown.trough ? `fundo em ${xLabelFor(s.days)(s.drawdown.trough)}` : 'sem queda no período';
 
   return (
     <section className="card returns">
       <div className="card-head">
         <h2>Rentabilidade</h2>
-        <span className="muted small">{rangeText(s, ann, variant)}</span>
+        <span className="muted small">{rangeText(s, ann, variant, method)}</span>
       </div>
       <PeriodPicker value={period} onChange={onPeriod} light />
       {s.truncated && period !== 'MAX' && (
@@ -96,7 +102,7 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
         </div>
       </div>
 
-      <LineChart labels={chart.labels} lines={chart.lines} />
+      <LineChart labels={chart.labels} tips={chart.tips} lines={chart.lines} />
 
       {variant === 'asset' ? (
         <div className="metrics3">
@@ -137,9 +143,9 @@ export function Metric({ label, value, hint, cls = '' }: { label: string; value:
 }
 
 /** Tabela de rentabilidade por período (Análise e web). */
-export function PeriodTable({ subject, label, annualize }: { subject: Subject; label: string; annualize: boolean }) {
+export function PeriodTable({ subject, label, annualize, method }: { subject: Subject; label: string; annualize: boolean; method: Method }) {
   const rows = PERIODS.map((p) => {
-    const s = stats(subject.series, subject.bench, p.id);
+    const s = stats(subject.series, subject.bench, p.id, method);
     const ann = isAnnualized(annualize, s.days);
     return { p, s, ann, label: p.id === 'YTD' ? s.end.slice(0, 4) : p.id === 'MAX' ? 'Total' : p.label };
   });

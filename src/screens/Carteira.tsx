@@ -6,11 +6,11 @@ import type { Period } from '../lib/types';
 import { href } from '../router';
 import { useApp } from '../state';
 import { colorFor, usePortfolio, useSubject } from '../useData';
-import { StatusLine } from './common';
+import { ratesText, StatusLine } from './common';
 import { Painel } from './Painel';
 
 export function Carteira() {
-  const { trades, settings, loadSample } = useApp();
+  const { trades, settings, market, loadSample } = useApp();
   const p = usePortfolio();
   const subject = useSubject();
   const [period, setPeriod] = useState<Period>(settings.defaultPeriod);
@@ -52,7 +52,7 @@ export function Carteira() {
 
       <div className="home-main">
         {subject ? (
-          <ReturnCard subject={subject} label="Carteira" color="var(--accent)" period={period} onPeriod={setPeriod} annualize={settings.annualize} variant="portfolio" />
+          <ReturnCard subject={subject} label="Carteira" color="var(--accent)" period={period} onPeriod={setPeriod} annualize={settings.annualize} method={settings.method} variant="portfolio" />
         ) : (
           <section className="card"><p className="muted">Aguardando cotações para calcular a rentabilidade…</p></section>
         )}
@@ -89,7 +89,7 @@ export function Carteira() {
           {p.holdings.length === 0 && <p className="muted pad">Nenhuma posição aberta.</p>}
         </div>
         <p className="footnote">
-          {settings.demo ? 'Dados de demonstração (simulados)' : 'Cotações: Yahoo Finance (último fechamento) · CDI: Ipeadata · IPCA: IBGE'} · rentabilidade por cotas (TWR), sem IR
+          {settings.demo ? 'Dados de demonstração (simulados)' : `Cotações: Yahoo Finance (último fechamento) · CDI: Ipeadata · IPCA: IBGE${ratesText(market) ? ` · ${ratesText(market)}` : ''}`} · {settings.method === 'mwrr' ? 'rentabilidade ponderada pelo dinheiro (MWRR)' : 'rentabilidade por cotas (TWR)'}, sem IR
         </p>
       </section>
     </div>

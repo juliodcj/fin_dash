@@ -30,11 +30,12 @@ export function Painel() {
     return () => window.removeEventListener('hashchange', go);
   }, []);
 
-  const s = subject ? stats(subject.series, subject.bench, period) : null;
+  const method = settings.method;
+  const s = subject ? stats(subject.series, subject.bench, period, method) : null;
   const ann = s ? isAnnualized(settings.annualize, s.days) : false;
   const show = (r: number | null) => (s ? shownReturn(r, s.days, settings.annualize) : null);
   const pl = period === 'MAX' ? 'total' : PERIODS.find((x) => x.id === period)!.label;
-  const chart = subject && s ? chartData(subject, s, 'Carteira', ACCENT, true) : null;
+  const chart = subject && s ? chartData(subject, s, 'Carteira', ACCENT, true, method) : null;
   const flows = subject ? monthlyFlows(subject.series) : [];
   const last = flows[flows.length - 1];
   const years = subject ? yearTable(subject.series, subject.bench) : [];
@@ -45,7 +46,7 @@ export function Painel() {
       <header className="painel-head">
         <div>
           <h1>Minha carteira</h1>
-          <StatusLine className="painel-status" />
+          <StatusLine className="painel-status" withRates />
         </div>
         <PeriodPicker value={period} onChange={setPeriod} wide />
       </header>
@@ -62,7 +63,7 @@ export function Painel() {
           <span className={`kpi-sub strong ${tone(p.today)}`}>{brlSigned(p.today)}</span>
         </div>
         <div className="kpi">
-          <span className="kpi-label">Rentabilidade · {pl}{ann ? ' a.a.' : ''}</span>
+          <span className="kpi-label">Rentabilidade · {pl}{ann ? ' a.a.' : ''}{method === 'mwrr' ? ' · MWRR' : ''}</span>
           <span className={`kpi-value ${tone(s?.ret)}`}>{pct(show(s?.ret ?? null))}</span>
           <span className="kpi-sub">CDI {pct(show(s?.cdi ?? null))} · IPCA {pct(show(s?.ipca ?? null))}</span>
         </div>
@@ -90,7 +91,7 @@ export function Painel() {
               <span><i className="dashed" />IPCA</span>
             </div>
           </div>
-          {chart ? <WideLineChart labels={chart.labels} lines={chart.lines} /> : <p className="muted">Aguardando cotações para calcular a rentabilidade…</p>}
+          {chart ? <WideLineChart labels={chart.labels} tips={chart.tips} lines={chart.lines} /> : <p className="muted">Aguardando cotações para calcular a rentabilidade…</p>}
         </section>
 
         <section className="pcard alloc-card">
@@ -171,7 +172,7 @@ export function Painel() {
                 </thead>
                 <tbody>
                   {PERIODS.map((x) => {
-                    const r = stats(subject.series, subject.bench, x.id);
+                    const r = stats(subject.series, subject.bench, x.id, method);
                     const sh = (v: number | null) => shownReturn(v, r.days, settings.annualize);
                     const a = isAnnualized(settings.annualize, r.days);
                     return (

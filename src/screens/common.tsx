@@ -1,4 +1,5 @@
-import { todayISO, toISO } from '../lib/dates';
+import { dateBR, monthLabel, todayISO, toISO } from '../lib/dates';
+import type { Market } from '../lib/types';
 import { useApp } from '../state';
 
 /** pregão regular da B3 (dias úteis, 10h–18h em Brasília); feriados não são considerados */
@@ -11,20 +12,42 @@ function b3Open(now: Date) {
   return p.weekday !== 'Sat' && p.weekday !== 'Sun' && h >= 10 && h < 18;
 }
 
-/** "Atualizado hoje, 17:05 · B3 fechada" */
-export function statusText(updatedAt: string | null, demo: boolean) {
-  if (!updatedAt) return '';
-  const t = new Date(updatedAt);
-  const hm = t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const day = toISO(t) === todayISO() ? 'hoje' : t.toLocaleDateString('pt-BR');
-  return `Atualizado ${day}, ${hm} · ${demo ? 'demonstração' : b3Open(new Date()) ? 'B3 aberta' : 'B3 fechada'}`;
+/** até que data vai cada dado: último pregão com cotação, último CDI diário e último IPCA divulgado */
+export function dataDates(market: Market) {
+  const last = Object.values(market.prices).map((q) => q.points[q.points.length - 1]?.date).filter(Boolean).sort();
+  return {
+    quotes: last[last.length - 1] ?? null,
+    cdi: market.cdi[market.cdi.length - 1]?.date ?? null,
+    ipca: market.ipca[market.ipca.length - 1]?.month ?? null,
+  };
 }
 
-export function StatusLine({ className = 'muted small' }: { className?: string }) {
+/** "CDI até 15/10/2026 · IPCA até set/26" */
+export function ratesText(market: Market) {
+  const d = dataDates(market);
+  return [d.cdi && `CDI até ${dateBR(d.cdi)}`, d.ipca && `IPCA até ${monthLabel(d.ipca)}`].filter(Boolean).join(' · ');
+}
+
+/** "Atualizado hoje, 17:05 · cotações até 16/10 · B3 fechada" */
+export function statusText(market: Market, demo: boolean, withRates = false) {
+  if (!market.updatedAt) return '';
+  const t = new Date(market.updatedAt);
+  const hm = t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const day = toISO(t) === todayISO() ? 'hoje' : t.toLocaleDateString('pt-BR');
+  const q = dataDates(market).quotes;
+  return [
+    `Atualizado ${day}, ${hm}`,
+    q && `cotações até ${dateBR(q).slice(0, q.slice(0, 4) === todayISO().slice(0, 4) ? 5 : 10)}`,
+    withRates && ratesText(market),
+    demo ? 'demonstração' : b3Open(new Date()) ? 'B3 aberta' : 'B3 fechada',
+  ].filter(Boolean).join(' · ');
+}
+
+export function StatusLine({ className = 'muted small', withRates = false }: { className?: string; withRates?: boolean }) {
   const { market, loading, settings } = useApp();
   return (
     <>
-      <span className={className}>{loading ? 'Atualizando cotações…' : statusText(market.updatedAt, settings.demo)}</span>
+      <span className={className}>{loading ? 'Atualizando cotações…' : statusText(market, settings.demo, withRates)}</span>
       {!loading && market.errors.length > 0 && (
         <details className="errors">
           <summary>{market.errors.length === 1 ? '1 aviso' : `${market.errors.length} avisos`} ao buscar dados</summary>

@@ -44,10 +44,14 @@ export interface MonthRate {
 
 export type Period = '1M' | '6M' | '12M' | '24M' | 'YTD' | 'MAX';
 
+/** twr: por cotas (tempo); mwrr: ponderada pelo dinheiro (TIR dos aportes) */
+export type Method = 'twr' | 'mwrr';
+
 export interface Settings {
   /** rentabilidade de períodos acima de 12 meses exibida ao ano */
   annualize: boolean;
   defaultPeriod: Period;
+  method: Method;
   demo: boolean;
   /** metas de alocação por ticker, em fração */
   targets: Record<string, number>;

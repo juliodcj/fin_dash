@@ -72,7 +72,7 @@ export function Ativo({ ticker }: { ticker: string }) {
         </section>
 
         {subject ? (
-          <ReturnCard subject={subject} label={ticker} color={colorFor(ticker, tickers.length ? tickers : [ticker])} period={period} onPeriod={setPeriod} annualize={settings.annualize} variant="asset" />
+          <ReturnCard subject={subject} label={ticker} color={colorFor(ticker, tickers.length ? tickers : [ticker])} period={period} onPeriod={setPeriod} annualize={settings.annualize} method={settings.method} variant="asset" />
         ) : (
           <section className="card"><p className="muted">Sem cotações de {ticker} para calcular a rentabilidade.</p></section>
         )}
