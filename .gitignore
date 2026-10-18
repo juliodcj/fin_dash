@@ -3,3 +3,5 @@ dist
 public/quotes
 *.log
 .DS_Store
+atualizar.bat
+executar.bat
