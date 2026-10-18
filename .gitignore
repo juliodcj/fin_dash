@@ -1,7 +1,9 @@
 node_modules
 dist
 public/quotes
+public/rates
 *.log
 .DS_Store
 atualizar.bat
 executar.bat
+fin-dash-backup-*.json

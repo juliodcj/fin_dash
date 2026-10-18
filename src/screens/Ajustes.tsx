@@ -96,7 +96,7 @@ export function Ajustes() {
       <section className="card">
         <h2>Dados de mercado</h2>
         <p className="muted small">
-          Cotações do último fechamento da B3 (Yahoo Finance), atualizadas uma vez por dia. CDI e IPCA vêm do Banco Central. Nada disso precisa de cadastro ou token.
+          Cotações do último fechamento da B3 (Yahoo Finance), atualizadas uma vez por dia. CDI (Ipeadata, série do Banco Central) e IPCA (IBGE) também são atualizados todo dia. Nada disso precisa de cadastro ou token.
         </p>
         <Toggle id="demo" checked={settings.demo} onChange={(v) => updateSettings({ demo: v })} label="Modo demonstração" hint="Usa cotações e índices simulados, sem internet." />
       </section>

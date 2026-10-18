@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchYahoo } from '../../scripts/quotes.mjs';
+import { fetchCdi, fetchIpca, fetchYahoo } from '../../scripts/quotes.mjs';
 import { fetchCDI, fetchIPCA, fetchQuote } from './api';
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -52,21 +52,41 @@ describe('cotações publicadas', () => {
   });
 });
 
-describe('Banco Central (SGS)', () => {
-  it('lê CDI diário e IPCA mensal em fração; 404 = sem dados', async () => {
+describe('CDI e IPCA (scripts/quotes.mjs)', () => {
+  it('lê o CDI diário do Ipeadata e o IPCA mensal do IBGE em fração', async () => {
     const fetchMock = vi.fn(async (url: string) => {
-      if (url.includes('sgs.12/')) return json(200, [{ data: '01/10/2026', valor: '0.055131' }, { data: '02/10/2026', valor: '0.055131' }]);
-      if (url.includes('dataInicial=01/08/2026')) return json(200, [{ data: '01/08/2026', valor: '0.35' }]);
-      return json(404, { error: 'Value(s) not found' });
+      if (url.includes('ipeadata')) {
+        return json(200, { value: [
+          { VALDATA: '2009-12-30T00:00:00-03:00', VALVALOR: 0.03 },
+          { VALDATA: '2026-10-02T00:00:00-03:00', VALVALOR: 0.055131 },
+          { VALDATA: '2026-10-01T00:00:00-03:00', VALVALOR: 0.055131 },
+        ] });
+      }
+      return json(200, [{ D3C: '197912', V: '...' }, { D3C: '202608', V: '0.35' }, { D3C: '202609', V: '-' }]);
     });
     vi.stubGlobal('fetch', fetchMock);
-    const cdi = await fetchCDI('2026-10-01');
+    const cdi = await fetchCdi();
     expect(cdi.map((c) => c.date)).toEqual(['2026-10-01', '2026-10-02']);
     expect(cdi[0].rate).toBeCloseTo(0.00055131, 12);
-    expect(String(fetchMock.mock.calls[0][0])).toContain('bcdata.sgs.12/dados?formato=json&dataInicial=01/10/2026');
-    const ipca = await fetchIPCA('2026-08-20');
-    expect(ipca).toHaveLength(1);
-    expect(ipca[0].month).toBe('2026-08');
+    const ipca = await fetchIpca();
+    expect(ipca.map((r) => r.month)).toEqual(['2026-08']);
     expect(ipca[0].rate).toBeCloseTo(0.0035, 12);
+  });
+});
+
+describe('índices publicados', () => {
+  it('filtra a partir da data pedida', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      url.endsWith('rates/cdi.json')
+        ? json(200, [{ date: '2026-09-30', rate: 0.0005 }, { date: '2026-10-01', rate: 0.0005 }])
+        : json(200, [{ month: '2026-07', rate: 0.001 }, { month: '2026-08', rate: 0.0035 }]),
+    ));
+    expect((await fetchCDI('2026-10-01')).map((c) => c.date)).toEqual(['2026-10-01']);
+    expect((await fetchIPCA('2026-08-20')).map((c) => c.month)).toEqual(['2026-08']);
+  });
+
+  it('repassa o erro da fonte', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json(404, { message: 'erro 500 no Ipeadata' })));
+    await expect(fetchCDI('2026-10-01')).rejects.toThrow('erro 500 no Ipeadata');
   });
 });

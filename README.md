@@ -17,7 +17,7 @@ Feito primeiro para celular (testado na largura do Galaxy S23, 360 px), com layo
 - **Cotações**: Yahoo Finance, gratuito e sem token, com até 10 anos de histórico diário (fechamento e fechamento ajustado). O Yahoo não aceita chamadas direto do navegador, então `scripts/quotes.mjs` grava as cotações em `quotes/<TICKER>.json`:
   - no site publicado, o CI baixa os tickers de [`tickers.txt`](tickers.txt) a cada push e todo dia útil às 18h30 (Brasília). **Ativo novo na carteira? Inclua o ticker em `tickers.txt` e faça push.**
   - no `npm run dev`, qualquer ticker é buscado na hora.
-- **CDI e IPCA**: API pública do Banco Central (SGS, séries 12 e 433), sem token.
+- **CDI e IPCA**: CDI diário do Ipeadata (réplica da série 12 do Banco Central) e IPCA mensal do IBGE (SIDRA, tabela 1737), sem token. A API SGS do Banco Central deixou de responder de forma confiável, por isso não é mais usada. O mesmo script grava `rates/cdi.json` e `rates/ipca.json`, junto com as cotações.
 - **Modo demonstração**: cotações e índices simulados, para ver o app sem internet ou sem token.
 - Lançamentos, ajustes e cache de cotações ficam só no aparelho (localStorage). Use Ajustes › Backup para exportar.
 
@@ -35,7 +35,7 @@ Feito primeiro para celular (testado na largura do Galaxy S23, 360 px), com layo
 npm install
 npm run dev      # http://localhost:5173
 npm test         # testes dos cálculos
-npm run quotes   # baixa as cotações de tickers.txt para public/quotes (opcional antes do build)
+npm run quotes   # baixa cotações (tickers.txt), CDI e IPCA para public/ (opcional antes do build)
 npm run build    # gera dist/
 ```
 

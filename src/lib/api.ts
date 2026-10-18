@@ -1,12 +1,8 @@
-import { brToISO, dateBR, toISO, todayISO } from './dates';
 import type { MonthRate, PriceHistory, RatePoint } from './types';
 
-/** cotações do Yahoo publicadas como arquivos estáticos (scripts/quotes.mjs) */
+/** dados de mercado publicados como arquivos estáticos (scripts/quotes.mjs) */
 const QUOTES = `${import.meta.env.BASE_URL}quotes`;
-const SGS = 'https://api.bcb.gov.br/dados/serie';
-/** séries do Banco Central: 12 = CDI diário (% a.d.), 433 = IPCA mensal (% a.m.) */
-const SERIE_CDI = 12;
-const SERIE_IPCA = 433;
+const RATES = `${import.meta.env.BASE_URL}rates`;
 
 /** Histórico diário de um ticker da B3 até o último fechamento. */
 export async function fetchQuote(ticker: string): Promise<PriceHistory> {
@@ -23,39 +19,24 @@ export async function fetchQuote(ticker: string): Promise<PriceHistory> {
   return q;
 }
 
-/** Série do SGS em janelas de até 9 anos (limite da API para séries diárias). */
-async function sgs(serie: number, from: string, to: string): Promise<{ date: string; value: number }[]> {
-  const out: { date: string; value: number }[] = [];
-  let start = from;
-  while (start <= to) {
-    const y = Number(start.slice(0, 4)) + 9;
-    const chunkEnd = `${y}${start.slice(4)}` < to ? `${y}${start.slice(4)}` : to;
-    const url = `${SGS}/bcdata.sgs.${serie}/dados?formato=json&dataInicial=${dateBR(start)}&dataFinal=${dateBR(chunkEnd)}`;
-    let res: Response;
-    try {
-      res = await fetch(url);
-    } catch {
-      throw new Error('sem conexão com o Banco Central');
-    }
-    // 404 = nenhum dado no intervalo (ex.: IPCA do mês corrente)
-    if (res.status !== 404) {
-      if (!res.ok) throw new Error(`Banco Central respondeu ${res.status}`);
-      const rows = (await res.json()) as { data: string; valor: string }[];
-      for (const row of rows) out.push({ date: brToISO(row.data), value: Number(row.valor) / 100 });
-    }
-    if (chunkEnd >= to) break;
-    const next = new Date(Number(chunkEnd.slice(0, 4)), Number(chunkEnd.slice(5, 7)) - 1, Number(chunkEnd.slice(8, 10)) + 1);
-    start = toISO(next);
+async function fetchRates<T>(name: 'cdi' | 'ipca', label: string): Promise<T[]> {
+  let res: Response;
+  try {
+    res = await fetch(`${RATES}/${name}.json`, { cache: 'no-cache' });
+  } catch {
+    throw new Error(`sem conexão para buscar o ${label}`);
   }
-  return out;
+  const body = (await res.json().catch(() => null)) as T[] | { message?: string } | null;
+  if (!Array.isArray(body)) throw new Error((body as { message?: string } | null)?.message ?? `${label} não publicado`);
+  return body;
 }
 
+/** CDI diário (Ipeadata, série 12 do Banco Central) a partir de `from` */
 export async function fetchCDI(from: string): Promise<RatePoint[]> {
-  const rows = await sgs(SERIE_CDI, from, todayISO());
-  return rows.map((r) => ({ date: r.date, rate: r.value }));
+  return (await fetchRates<RatePoint>('cdi', 'CDI')).filter((r) => r.date >= from);
 }
 
+/** IPCA mensal (IBGE) a partir do mês de `from` */
 export async function fetchIPCA(from: string): Promise<MonthRate[]> {
-  const rows = await sgs(SERIE_IPCA, `${from.slice(0, 7)}-01`, todayISO());
-  return rows.map((r) => ({ month: r.date.slice(0, 7), rate: r.value }));
+  return (await fetchRates<MonthRate>('ipca', 'IPCA')).filter((r) => r.month >= from.slice(0, 7));
 }
