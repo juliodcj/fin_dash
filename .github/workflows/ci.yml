@@ -11,8 +11,13 @@ on:
 permissions:
   contents: read
 
+# A publicação no GitHub Pages fica desligada até a variável do repositório PAGES_ENABLED
+# ser "true" (Settings › Secrets and variables › Actions › Variables), depois de ativar o
+# Pages em Settings › Pages › Source: GitHub Actions. Sem isso, só roda teste e build.
 jobs:
   build:
+    # a execução diária só serve para republicar com as cotações do dia
+    if: github.event_name != 'schedule' || vars.PAGES_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,14 +30,14 @@ jobs:
       - run: npm run quotes
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: vars.PAGES_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: dist
 
-  # publica no GitHub Pages a cada push na main (ative em Settings › Pages › Source: GitHub Actions)
+  # publica no GitHub Pages a cada push na main e todo dia útil
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: vars.PAGES_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       pages: write

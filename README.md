@@ -41,4 +41,9 @@ npm run build    # gera dist/
 
 ## Publicar e instalar no celular
 
-O workflow `.github/workflows/ci.yml` roda testes e build em todo push e publica no GitHub Pages a cada push na `main`. Para ativar: no GitHub, **Settings › Pages › Source: GitHub Actions**. Depois abra o endereço no Chrome do celular e use **Adicionar à tela inicial**.
+O workflow `.github/workflows/ci.yml` roda testes e build em todo push. A publicação no GitHub Pages (a cada push na `main` e todo dia útil às 18h30, com as cotações do dia) fica **desligada** até você ativá-la:
+
+1. **Settings › Pages › Source: GitHub Actions**. No plano gratuito do GitHub, o Pages só funciona com o repositório **público**.
+2. **Settings › Secrets and variables › Actions › Variables**: crie `PAGES_ENABLED` com o valor `true`.
+
+Depois abra o endereço no Chrome do celular e use **Adicionar à tela inicial**.
