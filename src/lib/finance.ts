@@ -346,6 +346,8 @@ export function bench(series: Series, cdi: RatePoint[], ipca: MonthRate[]): Benc
 export interface Stats extends Window {
   period: Period;
   ret: number;
+  /** ganho em R$ no período: variação do patrimônio menos os aportes líquidos */
+  gain: number;
   cdi: number | null;
   ipca: number | null;
   /** rentabilidade ÷ CDI, acumulados no período */
@@ -386,6 +388,7 @@ export function stats(series: Series, b: Bench, period: Period, method: Method =
     ...w,
     period,
     ret,
+    gain: periodGain(series, i0, i1),
     cdi,
     ipca,
     pctCdi: cdi != null && cdi > 0 ? ret / cdi : null,
@@ -397,6 +400,16 @@ export function stats(series: Series, b: Bench, period: Period, method: Method =
     worst,
     positive: months.filter((m) => m.r > 0).length,
   };
+}
+
+/**
+ * Ganho em R$ entre i0 e i1: lucro (patrimônio − aportes líquidos) no fim menos no início.
+ * Janela desde o começo da série: todo o lucro, inclusive a diferença entre o preço pago na
+ * 1ª compra e o fechamento daquele dia.
+ */
+export function periodGain(series: Series, i0: number, i1: number): number {
+  const profit = (i: number) => series.value[i] - series.invested[i];
+  return i0 === 0 ? profit(i1) : profit(i1) - profit(i0);
 }
 
 /** Período exibido ao ano? (ajuste ligado e janela acima de 12 meses) */

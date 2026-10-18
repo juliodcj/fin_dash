@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annualize, buildSeries, realGain, mwrr, xirr, cdiFactors, ipcaFactors, isAnnualized, maxDrawdown, monthlyReturns, niceAxis, positions, qtyAt, stats, bench, windowFor, yearTable } from './finance';
+import { annualize, buildSeries, periodGain, realGain, mwrr, xirr, cdiFactors, ipcaFactors, isAnnualized, maxDrawdown, monthlyReturns, niceAxis, positions, qtyAt, stats, bench, windowFor, yearTable } from './finance';
 import { parseNumberBR, pct } from './format';
 import type { PriceHistory, Trade } from './types';
 
@@ -86,6 +86,14 @@ describe('benchmarks', () => {
 });
 
 describe('indicadores', () => {
+  it('ganho em R$: lucro no fim menos no início, sem contar os aportes', () => {
+    // dia 0: R$ 100 investidos valendo 102; dia 1: +R$ 50 de aporte, vale 160; dia 2: vale 170
+    const series = { dates: ['a', 'b', 'c'], index: [1, 1, 1], value: [102, 160, 170], invested: [100, 150, 150] };
+    expect(periodGain(series, 0, 2)).toBe(20);
+    expect(periodGain(series, 1, 2)).toBe(10);
+    expect(periodGain(series, 1, 1)).toBe(0);
+  });
+
   it('drawdown máximo com topo, fundo e recuperação', () => {
     const d = maxDrawdown(['a', 'b', 'c', 'd', 'e'], [1, 1.2, 0.9, 1.1, 1.3]);
     expect(d.value).toBeCloseTo(-0.25, 10);

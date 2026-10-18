@@ -66,19 +66,19 @@ export function Painel() {
         <div className="kpi">
           <span className="kpi-label">Rentabilidade · {pl}{ann ? ' a.a.' : ''}{method === 'mwrr' ? ' · MWRR' : ''}</span>
           <span className={`kpi-value ${tone(s?.ret)}`}>{pct(show(s?.ret ?? null))}</span>
-          <span className="kpi-sub">CDI {pct(show(s?.cdi ?? null))} · IPCA {pct(show(s?.ipca ?? null))}</span>
+          {s && <span className={`kpi-sub strong ${tone(s.gain)}`}>{brlSigned(s.gain)}</span>}
         </div>
         <div className="kpi">
           <span className="kpi-label">% do CDI · {pl}</span>
           <span className="kpi-value">{ratio(s?.pctCdi)}</span>
-          <span className="kpi-sub">carteira ÷ CDI no período</span>
+          <span className="kpi-sub">CDI {pct(show(s?.cdi ?? null))}</span>
         </div>
         <div className="kpi">
           <span className="kpi-label">Ganho real · {pl}{ann ? ' a.a.' : ''}</span>
           {real != null
             ? <span className="kpi-value real">{realText(real)}</span>
             : <span className="kpi-value real soft">—</span>}
-          <span className="kpi-sub">acima da inflação{ann ? ', ao ano' : ' no período'}</span>
+          <span className="kpi-sub">IPCA {pct(show(s?.ipca ?? null))}</span>
         </div>
       </section>
 

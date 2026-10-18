@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { dateBR, dayMonth, monthLabel } from '../lib/dates';
 import { isAnnualized, mwrr, PERIODS, realGain, shownReturn, stats, type Stats } from '../lib/finance';
-import { pct, ratio, signed, tone } from '../lib/format';
+import { brlSigned, pct, ratio, signed, tone } from '../lib/format';
 import type { Method, Period } from '../lib/types';
 import type { Subject } from '../useData';
 import { chartPoints, LineChart, type ChartLine } from './charts';
@@ -81,6 +81,7 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
         <div>
           <Legend color={color}>{label}</Legend>
           <span className={`big ${tone(s.ret)}`}>{pct(show(s.ret))}</span>
+          <span className={`gain ${tone(s.gain)}`}>{brlSigned(s.gain)}</span>
         </div>
         <div>
           <Legend color={CDI_COLOR}>CDI</Legend>
