@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annualize, buildSeries, mwrr, xirr, cdiFactors, ipcaFactors, isAnnualized, maxDrawdown, monthlyReturns, niceAxis, positions, qtyAt, stats, bench, windowFor, yearTable } from './finance';
+import { annualize, buildSeries, realGain, mwrr, xirr, cdiFactors, ipcaFactors, isAnnualized, maxDrawdown, monthlyReturns, niceAxis, positions, qtyAt, stats, bench, windowFor, yearTable } from './finance';
 import { parseNumberBR, pct } from './format';
 import type { PriceHistory, Trade } from './types';
 
@@ -104,7 +104,7 @@ describe('indicadores', () => {
     expect(windowFor(dates.slice(1), '24M')).toMatchObject({ start: '2024-06-28', truncated: true });
   });
 
-  it('ganho real só para 12M ou mais; retornos mensais e tabela anual', () => {
+  it('ganho real em todo período; retornos mensais e tabela anual', () => {
     const dates: string[] = [];
     const index: number[] = [];
     for (let m = 0; m < 25; m++) {
@@ -114,8 +114,15 @@ describe('indicadores', () => {
     }
     const series = { dates, index, value: index, invested: index.map(() => 1) };
     const b = bench(series, [], [{ month: '2024-02', rate: 0.005 }]);
-    expect(stats(series, b, '6M').realAnnual).toBeNull();
-    expect(stats(series, b, '12M').realAnnual).not.toBeNull();
+    // abaixo de 12M: rentabilidade do período − IPCA do período, com ou sem anualizar
+    const s6 = stats(series, b, '6M');
+    expect(realGain(s6, true)).toBeCloseTo(s6.ret - s6.ipca!, 12);
+    expect(realGain(s6, false)).toBeCloseTo(s6.ret - s6.ipca!, 12);
+    // acima de 12M: anualizado só com o ajuste ligado
+    const s24 = stats(series, b, '24M');
+    expect(realGain(s24, false)).toBeCloseTo(s24.ret - s24.ipca!, 12);
+    expect(realGain(s24, true)).toBeCloseTo(annualize(s24.ret, s24.days) - annualize(s24.ipca!, s24.days), 12);
+    expect(realGain({ ...s6, ipca: null }, true)).toBeNull();
     expect(stats(series, b, '12M').cdi).toBeNull();
     const mr = monthlyReturns(dates, index, 0, 24);
     expect(mr).toHaveLength(24);

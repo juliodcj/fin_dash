@@ -2,3 +2,4 @@
 # Ao comprar um ativo novo, inclua aqui e faça push. No `npm run dev` qualquer ticker funciona.
 WRLD11
 B5P211
+MUND11

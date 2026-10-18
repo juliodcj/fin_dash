@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { WideFlowsChart, WideLineChart } from '../components/charts';
-import { chartData, heat } from '../components/returns';
+import { chartData, heat, realText } from '../components/returns';
 import { PeriodPicker } from '../components/ui';
 import { describe } from '../lib/assets';
 import { MESES, monthLabel } from '../lib/dates';
-import { isAnnualized, monthlyFlows, PERIODS, shownReturn, stats, yearTable } from '../lib/finance';
+import { isAnnualized, monthlyFlows, PERIODS, realGain, shownReturn, stats, yearTable } from '../lib/finance';
 import { brl, brl0, brlSigned, pct, qty, ratio, signed, tone } from '../lib/format';
 import type { Period } from '../lib/types';
 import { href } from '../router';
@@ -34,6 +34,7 @@ export function Painel() {
   const s = subject ? stats(subject.series, subject.bench, period, method) : null;
   const ann = s ? isAnnualized(settings.annualize, s.days) : false;
   const show = (r: number | null) => (s ? shownReturn(r, s.days, settings.annualize) : null);
+  const real = s ? realGain(s, settings.annualize) : null;
   const pl = period === 'MAX' ? 'total' : PERIODS.find((x) => x.id === period)!.label;
   const chart = subject && s ? chartData(subject, s, 'Carteira', ACCENT, true, method) : null;
   const flows = subject ? monthlyFlows(subject.series) : [];
@@ -73,11 +74,11 @@ export function Painel() {
           <span className="kpi-sub">carteira ÷ CDI no período</span>
         </div>
         <div className="kpi">
-          <span className="kpi-label">Ganho real a.a. · {pl}</span>
-          {s?.realAnnual != null
-            ? <span className="kpi-value real">IPCA {s.realAnnual < 0 ? '−' : '+'} {pct(Math.abs(s.realAnnual), 2, false)}</span>
-            : <span className="kpi-value real soft">a partir de 12M</span>}
-          <span className="kpi-sub">acima da inflação, por ano</span>
+          <span className="kpi-label">Ganho real · {pl}{ann ? ' a.a.' : ''}</span>
+          {real != null
+            ? <span className="kpi-value real">{realText(real)}</span>
+            : <span className="kpi-value real soft">—</span>}
+          <span className="kpi-sub">acima da inflação{ann ? ', ao ano' : ' no período'}</span>
         </div>
       </section>
 
@@ -167,7 +168,7 @@ export function Painel() {
                     <th scope="col">CDI</th>
                     <th scope="col">IPCA</th>
                     <th scope="col">% CDI</th>
-                    <th scope="col">IPCA + a.a.</th>
+                    <th scope="col">IPCA + x%</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,6 +176,7 @@ export function Painel() {
                     const r = stats(subject.series, subject.bench, x.id, method);
                     const sh = (v: number | null) => shownReturn(v, r.days, settings.annualize);
                     const a = isAnnualized(settings.annualize, r.days);
+                    const g = realGain(r, settings.annualize);
                     return (
                       <tr key={x.id} className={x.id === period ? 'on' : ''}>
                         <th scope="row">{x.id === 'YTD' ? r.end.slice(0, 4) : x.id === 'MAX' ? 'Total' : x.label}{a && <span className="aa">a.a.</span>}</th>
@@ -182,7 +184,7 @@ export function Painel() {
                         <td>{pct(sh(r.cdi))}</td>
                         <td>{pct(sh(r.ipca))}</td>
                         <td className="semi">{ratio(r.pctCdi)}</td>
-                        <td className={`semi ${r.realAnnual == null ? 'soft' : r.realAnnual < 0 ? 'neg' : ''}`}>{pct(r.realAnnual)}</td>
+                        <td className={`semi ${g == null ? 'soft' : g < 0 ? 'neg' : ''}`}>{pct(g)}</td>
                       </tr>
                     );
                   })}
@@ -225,6 +227,7 @@ export function Painel() {
                   {MESES.map((m) => <th key={m} scope="col">{m}</th>)}
                   <th scope="col" className="ink">No ano</th>
                   <th scope="col">CDI</th>
+                  <th scope="col">IPCA</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,6 +237,7 @@ export function Painel() {
                     {y.months.map((r, i) => <td key={i} className={`mcell ${heat(r)}`}>{r == null ? '–' : pct(r, 1).replace('%', '')}</td>)}
                     <td className="ytot">{pct(y.total)}</td>
                     <td className="ycdi">{pct(y.cdi)}</td>
+                    <td className="ycdi">{pct(y.ipca)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -62,7 +62,7 @@ export function Ajustes() {
           checked={settings.annualize}
           onChange={(v) => updateSettings({ annualize: v })}
           label="Anualizar períodos acima de 12 meses"
-          hint="Rentabilidade da carteira, do CDI e do IPCA em 24M e Máx aparece ao ano (a.a.)."
+          hint="Em 24M e Máx, a rentabilidade da carteira, do CDI e do IPCA e o IPCA + x% aparecem ao ano (a.a.)."
         />
         <div className="field-row">
           <label htmlFor="period">Período padrão</label>

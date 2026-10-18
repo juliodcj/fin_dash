@@ -4,9 +4,11 @@
 // - rates/cdi.json e rates/ipca.json: CDI diário (Ipeadata, série do Banco Central) e
 //   IPCA mensal (IBGE), no lugar da API SGS do Banco Central, que anda instável.
 // O CI gera os arquivos após o fechamento e o `npm run dev` serve sob demanda (ver vite.config.ts).
+// data/history/<TICKER>.json ([["AAAA-MM-DD", fechamento], ...]) é um histórico oficial que tem
+// prioridade sobre o Yahoo nas datas que cobre; o Yahoo completa só os pregões posteriores.
 //
 // Uso: node scripts/quotes.mjs [pasta public]   (padrão: public, lendo tickers.txt)
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const YAHOO = 'https://query1.finance.yahoo.com/v8/finance/chart';
@@ -51,6 +53,44 @@ export async function fetchYahoo(ticker) {
   };
 }
 
+const HISTORY = new URL('../data/history/', import.meta.url);
+
+/** histórico oficial salvo no repositório, ou null */
+async function readHistory(ticker) {
+  const file = new URL(`${ticker}.json`, HISTORY);
+  try {
+    await access(file);
+  } catch {
+    return null;
+  }
+  return JSON.parse(await readFile(file, 'utf8'));
+}
+
+/**
+ * Junta o histórico oficial ([data, fechamento]) com o do Yahoo: até a última data do
+ * histórico valem só os pontos dele; depois, os do Yahoo. O ajuste por proventos do Yahoo
+ * (adj ÷ close) é reaproveitado na mesma data quando existe.
+ */
+export function mergeHistory(q, rows) {
+  if (!rows?.length) return q;
+  const sorted = [...rows].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  const end = sorted[sorted.length - 1][0];
+  const ratio = new Map(q.points.map((p) => [p.date, p.adj / p.close]));
+  const points = [
+    ...sorted.map(([date, close]) => ({ date, close: r4(close), adj: r4(close * (ratio.get(date) ?? 1)) })),
+    ...q.points.filter((p) => p.date > end),
+  ];
+  const last = points[points.length - 1];
+  const prev = points[points.length - 2];
+  return { ...q, points, price: last.close, changePct: prev ? last.close / prev.close - 1 : null };
+}
+
+/** cotações do Yahoo com o histórico oficial do repositório, quando houver */
+export async function fetchQuote(ticker) {
+  const [q, rows] = await Promise.all([fetchYahoo(ticker), readHistory(ticker)]);
+  return mergeHistory(q, rows);
+}
+
 async function getJson(url, label) {
   const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (fin-dash)', Accept: 'application/json' } });
   const body = await res.json().catch(() => null);
@@ -93,7 +133,7 @@ async function main() {
   let ok = 0;
   for (const t of tickers) {
     try {
-      const q = await fetchYahoo(t);
+      const q = await fetchQuote(t);
       await writeFile(`${out}/${t}.json`, JSON.stringify(q));
       console.log(`${t}: ${q.points.length} pregões até ${q.points[q.points.length - 1].date}`);
       ok++;

@@ -1,4 +1,5 @@
 import { dateBR, monthLabel, todayISO, toISO } from '../lib/dates';
+import { issueText } from '../lib/quality';
 import type { Market } from '../lib/types';
 import { useApp } from '../state';
 
@@ -54,6 +55,20 @@ export function StatusLine({ className = 'muted small', withRates = false }: { c
           <ul>{market.errors.map((e) => <li key={e}>{e}</li>)}</ul>
         </details>
       )}
+      <QuoteIssues />
     </>
+  );
+}
+
+/** erros encontrados nas cotações; com `ticker`, só os daquele ativo */
+export function QuoteIssues({ ticker }: { ticker?: string }) {
+  const { market, loading } = useApp();
+  const list = market.issues.filter((x) => !ticker || x.ticker === ticker);
+  if (loading || !list.length) return null;
+  return (
+    <details className="errors">
+      <summary>{list.length === 1 ? '1 erro' : `${list.length} erros`} nas cotações{ticker ? '' : ` de ${[...new Set(list.map((x) => x.ticker))].join(', ')}`}</summary>
+      <ul>{list.map((x) => <li key={`${x.ticker}${x.kind}${x.from}`}>{issueText(x)}</li>)}</ul>
+    </details>
   );
 }

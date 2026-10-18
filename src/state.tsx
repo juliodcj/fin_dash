@@ -2,13 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { fetchCDI, fetchIPCA, fetchQuote } from './lib/api';
 import { addMonths, todayISO } from './lib/dates';
 import { demoCDI, demoIPCA, demoQuote } from './lib/demo';
+import { cleanMarket } from './lib/quality';
 import { cached, clearAll, loadSettings, loadTrades, newId, putCache, save } from './lib/storage';
 import type { Market, PriceHistory, Settings, Trade } from './lib/types';
 
 const QUOTE_TTL = 15 * 60 * 1000;
 const RATES_TTL = 12 * 60 * 60 * 1000;
 
-const EMPTY_MARKET: Market = { prices: {}, cdi: [], ipca: [], errors: [], updatedAt: null };
+const EMPTY_MARKET: Market = { prices: {}, cdi: [], ipca: [], errors: [], issues: [], updatedAt: null };
 
 interface Ctx {
   trades: Trade[];
@@ -79,7 +80,7 @@ async function loadMarket(trades: Trade[], settings: Settings, force: boolean): 
     else errors.push((r.reason as Error).message);
   });
   const rates = await loadRates(from, settings, force, errors);
-  return { prices, ...rates, errors, updatedAt: new Date().toISOString() };
+  return { prices, ...rates, errors, issues: [], updatedAt: new Date().toISOString() };
 }
 
 /** carteira exemplo: aporte de R$ 1.000 no 1º pregão de cada mês, 70% WRLD11 / 30% B5P211 */
@@ -103,7 +104,9 @@ function sampleTrades(w: PriceHistory, b: PriceHistory): Trade[] {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [trades, setTrades] = useState<Trade[]>(loadTrades);
   const [settings, setSettings] = useState<Settings>(loadSettings);
-  const [market, setMarket] = useState<Market>(EMPTY_MARKET);
+  const [rawMarket, setMarket] = useState<Market>(EMPTY_MARKET);
+  // cotações com os erros detectados já corrigidos (os preços dos lançamentos servem de âncora)
+  const market = useMemo(() => cleanMarket(rawMarket, trades), [rawMarket, trades]);
   const [loading, setLoading] = useState(false);
   const run = useRef(0);
 

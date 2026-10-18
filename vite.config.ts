@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { fetchCdi, fetchIpca, fetchYahoo } from './scripts/quotes.mjs';
+import { fetchCdi, fetchIpca, fetchQuote } from './scripts/quotes.mjs';
 
 // base relativo: o build funciona em qualquer subcaminho (ex.: GitHub Pages)
 export default defineConfig({
@@ -17,7 +17,7 @@ export default defineConfig({
           const rate = url.match(/\/rates\/(cdi|ipca)\.json(\?|$)/);
           if (!quote && !rate) return next();
           try {
-            const q = quote ? await fetchYahoo(quote[1]) : rate![1] === 'cdi' ? await fetchCdi() : await fetchIpca();
+            const q = quote ? await fetchQuote(quote[1]) : rate![1] === 'cdi' ? await fetchCdi() : await fetchIpca();
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify(q));
           } catch (e) {

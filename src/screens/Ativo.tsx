@@ -8,6 +8,7 @@ import type { Period } from '../lib/types';
 import { href } from '../router';
 import { useApp } from '../state';
 import { colorFor, usePortfolio, useSubject } from '../useData';
+import { QuoteIssues } from './common';
 
 const SHOW = 3;
 
@@ -50,6 +51,7 @@ export function Ativo({ ticker }: { ticker: string }) {
           <span className="hero-value">{brl(price)}</span>
           {quote?.changePct != null && <span className={`strong ${tone(quote.changePct)}`}>{pct(quote.changePct)} hoje</span>}
         </div>
+        <QuoteIssues ticker={ticker} />
       </section>
 
       <div className="asset-grid">

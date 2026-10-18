@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchCdi, fetchIpca, fetchYahoo } from '../../scripts/quotes.mjs';
+import { fetchCdi, fetchIpca, fetchYahoo, mergeHistory } from '../../scripts/quotes.mjs';
 import { fetchCDI, fetchIPCA, fetchQuote } from './api';
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -34,6 +34,27 @@ describe('Yahoo (scripts/quotes.mjs)', () => {
   it('mostra a mensagem do Yahoo quando o ticker não existe', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json(404, { chart: { result: null, error: { description: 'No data found, symbol may be delisted' } } })));
     await expect(fetchYahoo('XXXX11')).rejects.toThrow('No data found');
+  });
+});
+
+describe('histórico oficial (data/history)', () => {
+  it('vale nas datas que cobre; o Yahoo completa só depois', () => {
+    const yahoo = {
+      ticker: 'B5P211',
+      points: [
+        { date: '2025-10-24', close: 99.42, adj: 99.42 },
+        { date: '2025-10-27', close: 71.25, adj: 71.25 },
+        { date: '2025-10-28', close: 71.25, adj: 71.25 },
+        { date: '2025-10-29', close: 100, adj: 100 },
+      ],
+      price: 100,
+      changePct: 0.4,
+    };
+    const q = mergeHistory(yahoo, [['2025-10-27', 99.59], ['2025-10-24', 99.4], ['2025-10-28', 99.7]]);
+    expect(q.points.map((p) => [p.date, p.close])).toEqual([['2025-10-24', 99.4], ['2025-10-27', 99.59], ['2025-10-28', 99.7], ['2025-10-29', 100]]);
+    expect(q.price).toBe(100);
+    expect(q.changePct).toBeCloseTo(100 / 99.7 - 1, 10);
+    expect(mergeHistory(yahoo, null)).toBe(yahoo);
   });
 });
 

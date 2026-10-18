@@ -69,8 +69,8 @@ export function Analise() {
           <h2 className="pad-x">Rentabilidade por período</h2>
           <PeriodTable subject={subject} label={label} annualize={settings.annualize} method={settings.method} />
           <p className="table-note">
-            IPCA + a.a.: ganho acima da inflação por ano, calculado para períodos de 12 meses ou mais.
-            {settings.annualize ? ' Linhas marcadas com a.a. estão anualizadas.' : ''}
+            IPCA + x%: rentabilidade menos o IPCA no período.
+            {settings.annualize ? ' Linhas marcadas com a.a. estão anualizadas, inclusive o IPCA + x%.' : ''}
           </p>
         </section>
 
@@ -122,7 +122,7 @@ export function Analise() {
             <div key={y.year} className="year">
               <div className="year-head">
                 <b>{y.year}</b>
-                <span className="muted small"><b className="ink">{pct(y.total)}</b>{y.cdi != null ? ` · CDI ${pct(y.cdi)}` : ''}</span>
+                <span className="muted small"><b className="ink">{pct(y.total)}</b>{y.cdi != null ? ` · CDI ${pct(y.cdi)}` : ''}{y.ipca != null ? ` · IPCA ${pct(y.ipca)}` : ''}</span>
               </div>
               <div className="heat">
                 {y.months.map((r, i) => (

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dateBR, dayMonth, monthLabel } from '../lib/dates';
-import { isAnnualized, mwrr, PERIODS, shownReturn, stats, type Stats } from '../lib/finance';
+import { isAnnualized, mwrr, PERIODS, realGain, shownReturn, stats, type Stats } from '../lib/finance';
 import { pct, ratio, signed, tone } from '../lib/format';
 import type { Method, Period } from '../lib/types';
 import type { Subject } from '../useData';
@@ -39,9 +39,10 @@ export function chartData(subject: Subject, s: Stats, label: string, color: stri
   return { labels: idx.map((i) => fmt(series.dates[i])), tips: idx.map((i) => dateBR(series.dates[i])), lines };
 }
 
-function realText(s: Stats) {
-  if (s.realAnnual == null) return null;
-  return `IPCA ${s.realAnnual < 0 ? '−' : '+'} ${pct(Math.abs(s.realAnnual), 2, false)}`;
+/** "IPCA + 2,31%" */
+export function realText(r: number | null) {
+  if (r == null) return null;
+  return `IPCA ${r < 0 ? '−' : '+'} ${pct(Math.abs(r), 2, false)}`;
 }
 
 interface Props {
@@ -61,7 +62,7 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
   const s = stats(subject.series, subject.bench, period, method);
   const ann = isAnnualized(annualize, s.days);
   const show = (r: number | null) => shownReturn(r, s.days, annualize);
-  const real = realText(s);
+  const real = realText(realGain(s, annualize));
   const chart = chartData(subject, s, label, color, false, method);
   const ddWhen = s.drawdown.trough ? `fundo em ${xLabelFor(s.days)(s.drawdown.trough)}` : 'sem queda no período';
 
@@ -97,8 +98,8 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
           <span className="tile-value">{ratio(s.pctCdi)}</span>
         </div>
         <div className="tile">
-          <span className="tile-label">Ganho real a.a.</span>
-          {real ? <span className="tile-value">{real}</span> : <span className="tile-value soft">a partir de 12M</span>}
+          <span className="tile-label">Ganho real</span>
+          {real ? <span className="tile-value">{real}</span> : <span className="tile-value soft">—</span>}
         </div>
       </div>
 
@@ -147,7 +148,7 @@ export function PeriodTable({ subject, label, annualize, method }: { subject: Su
   const rows = PERIODS.map((p) => {
     const s = stats(subject.series, subject.bench, p.id, method);
     const ann = isAnnualized(annualize, s.days);
-    return { p, s, ann, label: p.id === 'YTD' ? s.end.slice(0, 4) : p.id === 'MAX' ? 'Total' : p.label };
+    return { p, s, ann, real: realGain(s, annualize), label: p.id === 'YTD' ? s.end.slice(0, 4) : p.id === 'MAX' ? 'Total' : p.label };
   });
   return (
     <div className="table-wrap">
@@ -158,11 +159,11 @@ export function PeriodTable({ subject, label, annualize, method }: { subject: Su
             <th scope="col" className="accent-col">{label}</th>
             <th scope="col">CDI</th>
             <th scope="col">% CDI</th>
-            <th scope="col">IPCA + a.a.</th>
+            <th scope="col">IPCA + x%</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ p, s, ann, label: l }) => (
+          {rows.map(({ p, s, ann, real, label: l }) => (
             <tr key={p.id}>
               <th scope="row">
                 {l}
@@ -171,7 +172,7 @@ export function PeriodTable({ subject, label, annualize, method }: { subject: Su
               <td className={`strong ${s.cdi != null && s.ret >= s.cdi ? 'pos' : ''}`}>{pct(shownReturn(s.ret, s.days, annualize))}</td>
               <td>{pct(shownReturn(s.cdi, s.days, annualize))}</td>
               <td className="semi">{ratio(s.pctCdi)}</td>
-              <td className={`semi ${s.realAnnual == null ? 'soft' : tone(s.realAnnual) === 'neg' ? 'neg' : ''}`}>{pct(s.realAnnual)}</td>
+              <td className={`semi ${real == null ? 'soft' : tone(real) === 'neg' ? 'neg' : ''}`}>{pct(real)}</td>
             </tr>
           ))}
         </tbody>

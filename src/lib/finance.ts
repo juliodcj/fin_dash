@@ -350,8 +350,6 @@ export interface Stats extends Window {
   ipca: number | null;
   /** rentabilidade ÷ CDI, acumulados no período */
   pctCdi: number | null;
-  /** ganho real ao ano; só para períodos de 12 meses ou mais */
-  realAnnual: number | null;
   drawdown: Drawdown;
   vol: number | null;
   sharpe: number | null;
@@ -377,7 +375,6 @@ export function stats(series: Series, b: Bench, period: Period, method: Method =
   const cdi = !b.hasCdi ? null : m ? mwrr(series, b.cdi, i0, i1) : twrCdi;
   const ipca = !b.hasIpca ? null : m ? mwrr(series, b.ipca, i0, i1) : b.ipca[i1] / b.ipca[i0] - 1;
   const vol = days >= 28 ? volatility(idx) : null;
-  const longEnough = days >= 365;
   const months = monthlyReturns(series.dates, series.index, i0, i1);
   let best: MonthReturn | null = null;
   let worst: MonthReturn | null = null;
@@ -392,7 +389,6 @@ export function stats(series: Series, b: Bench, period: Period, method: Method =
     cdi,
     ipca,
     pctCdi: cdi != null && cdi > 0 ? ret / cdi : null,
-    realAnnual: longEnough && ipca != null ? Math.pow((1 + ret) / (1 + ipca), 365 / days) - 1 : null,
     drawdown: maxDrawdown(series.dates.slice(i0, i1 + 1), idx),
     vol,
     sharpe: days >= 180 && vol && twrCdi != null ? (annualize(twr, days) - annualize(twrCdi, days)) / vol : null,
@@ -409,11 +405,21 @@ export const isAnnualized = (annualizeOn: boolean, days: number) => annualizeOn 
 export const shownReturn = (r: number | null, days: number, annualizeOn: boolean) =>
   r == null ? null : isAnnualized(annualizeOn, days) ? annualize(r, days) : r;
 
+/**
+ * Ganho real (IPCA + x%): rentabilidade menos IPCA, nos mesmos termos em que aparecem na tela —
+ * do período, ou ao ano quando o período é anualizado.
+ */
+export function realGain(s: Pick<Stats, 'ret' | 'ipca' | 'days'>, annualizeOn: boolean): number | null {
+  if (s.ipca == null) return null;
+  return shownReturn(s.ret, s.days, annualizeOn)! - shownReturn(s.ipca, s.days, annualizeOn)!;
+}
+
 export interface YearRow {
   year: string;
   months: (number | null)[];
   total: number;
   cdi: number | null;
+  ipca: number | null;
 }
 
 /** tabela de retornos mensais por ano (mês incompleto no início usa a data da 1ª compra) */
@@ -425,7 +431,7 @@ export function yearTable(series: Series, b: Bench): YearRow[] {
     if (e === prev && e !== 0) continue;
     const ym = series.dates[e].slice(0, 7);
     const y = ym.slice(0, 4);
-    const row = rows.get(y) ?? { year: y, months: Array(12).fill(null), total: 0, cdi: null };
+    const row = rows.get(y) ?? { year: y, months: Array(12).fill(null), total: 0, cdi: null, ipca: null };
     row.months[Number(ym.slice(5, 7)) - 1] = series.index[e] / series.index[prev] - 1;
     rows.set(y, row);
     prev = e;
@@ -437,6 +443,7 @@ export function yearTable(series: Series, b: Bench): YearRow[] {
     const base = firstIdx > 0 ? firstIdx - 1 : 0;
     row.total = series.index[last] / series.index[base] - 1;
     row.cdi = b.hasCdi ? b.cdi[last] / b.cdi[base] - 1 : null;
+    row.ipca = b.hasIpca ? b.ipca[last] / b.ipca[base] - 1 : null;
   }
   return [...rows.values()].sort((a, c) => (a.year < c.year ? -1 : 1));
 }

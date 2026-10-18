@@ -18,6 +18,8 @@ export interface PricePoint {
   close: number;
   /** fechamento ajustado por proventos (igual ao close quando a fonte não informa) */
   adj: number;
+  /** valor estimado no lugar de uma cotação errada ou ausente (ver lib/quality) */
+  est?: boolean;
 }
 
 export interface PriceHistory {
@@ -62,5 +64,17 @@ export interface Market {
   cdi: RatePoint[];
   ipca: MonthRate[];
   errors: string[];
+  /** erros encontrados nas cotações (ver lib/quality) */
+  issues: QuoteIssue[];
   updatedAt: string | null;
+}
+
+export interface QuoteIssue {
+  ticker: string;
+  kind: 'stale' | 'spike' | 'gap' | 'jump';
+  from: string;
+  to: string;
+  /** o trecho foi substituído por valores estimados */
+  fixed: boolean;
+  text: string;
 }
