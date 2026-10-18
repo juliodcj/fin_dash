@@ -9,14 +9,14 @@ import { colorFor, usePortfolio, useSubject } from '../useData';
 import { StatusLine } from './common';
 
 export function Carteira() {
-  const { trades, settings, updateSettings, loadSample } = useApp();
+  const { trades, settings, loadSample } = useApp();
   const p = usePortfolio();
   const subject = useSubject();
   const [period, setPeriod] = useState<Period>(settings.defaultPeriod);
   const tickers = p.holdings.map((h) => h.ticker);
   const hasTargets = Object.keys(settings.targets).length > 0;
 
-  if (!trades.length) return <Empty onSample={loadSample} demo={settings.demo} token={settings.brapiToken} onDemo={() => updateSettings({ demo: true })} />;
+  if (!trades.length) return <Empty onSample={loadSample} />;
 
   return (
     <div className="screen home">
@@ -27,8 +27,6 @@ export function Carteira() {
         </div>
         <RefreshButton />
       </header>
-
-      {!settings.demo && !settings.brapiToken && <TokenBanner onDemo={() => updateSettings({ demo: true })} />}
 
       <section className="hero">
         <span className="label">Patrimônio</span>
@@ -88,7 +86,7 @@ export function Carteira() {
           {p.holdings.length === 0 && <p className="muted pad">Nenhuma posição aberta.</p>}
         </div>
         <p className="footnote">
-          {settings.demo ? 'Dados de demonstração (simulados)' : 'Cotações: brapi.dev · CDI e IPCA: Banco Central'} · rentabilidade por cotas (TWR), sem IR
+          {settings.demo ? 'Dados de demonstração (simulados)' : 'Cotações: Yahoo Finance (último fechamento) · CDI e IPCA: Banco Central'} · rentabilidade por cotas (TWR), sem IR
         </p>
       </section>
     </div>
@@ -104,22 +102,9 @@ function RefreshButton() {
   );
 }
 
-function TokenBanner({ onDemo }: { onDemo: () => void }) {
-  return (
-    <div className="banner">
-      <p>Para cotações reais da B3, cole seu token gratuito da brapi.dev em Ajustes.</p>
-      <div className="banner-actions">
-        <a className="btn small" href={href.ajustes}>Abrir ajustes</a>
-        <button type="button" className="btn small ghost" onClick={onDemo}>Usar demonstração</button>
-      </div>
-    </div>
-  );
-}
-
-function Empty({ onSample, demo, token, onDemo }: { onSample: () => Promise<void>; demo: boolean; token: string; onDemo: () => void }) {
+function Empty({ onSample }: { onSample: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const canSample = demo || !!token;
   return (
     <div className="screen">
       <header className="screen-head"><div><h1>Minha carteira</h1></div></header>
@@ -130,7 +115,7 @@ function Empty({ onSample, demo, token, onDemo }: { onSample: () => Promise<void
         <button
           type="button"
           className="btn ghost"
-          disabled={busy || !canSample}
+          disabled={busy}
           onClick={async () => {
             setBusy(true);
             setErr('');
@@ -139,12 +124,6 @@ function Empty({ onSample, demo, token, onDemo }: { onSample: () => Promise<void
         >
           {busy ? 'Carregando…' : 'Carregar carteira exemplo (70% WRLD11 · 30% B5P211)'}
         </button>
-        {!canSample && (
-          <p className="small muted">
-            A carteira exemplo usa cotações reais: adicione o token da brapi em <a href={href.ajustes}>Ajustes</a> ou{' '}
-            <button type="button" className="link" onClick={onDemo}>ative a demonstração</button>.
-          </p>
-        )}
         {err && <p className="error" role="alert">{err}</p>}
       </section>
     </div>

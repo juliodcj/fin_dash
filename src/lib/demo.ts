@@ -1,4 +1,4 @@
-// Dados simulados para o modo demonstração (sem internet ou sem token da brapi).
+// Dados simulados para o modo demonstração (sem internet).
 import { daysInMonth, toISO, todayISO } from './dates';
 import type { MonthRate, PriceHistory, RatePoint } from './types';
 

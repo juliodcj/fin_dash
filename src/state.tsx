@@ -34,11 +34,12 @@ export const useApp = () => {
 
 async function loadQuote(ticker: string, from: string, settings: Settings, force: boolean): Promise<PriceHistory> {
   if (settings.demo) return demoQuote(ticker);
-  const c = cached<PriceHistory>(`q:${ticker}`, from, QUOTE_TTL);
+  // chave 'y:' (Yahoo) para não reaproveitar o histórico curto salvo da brapi
+  const c = cached<PriceHistory>(`y:${ticker}`, from, QUOTE_TTL);
   if (c?.fresh && !force) return c.data;
   try {
-    const data = await fetchQuote(ticker, from, settings.brapiToken);
-    putCache(`q:${ticker}`, from, data);
+    const data = await fetchQuote(ticker);
+    putCache(`y:${ticker}`, from, data);
     return data;
   } catch (e) {
     if (c) return c.data; // usa a última cotação salva
@@ -126,7 +127,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [trades]);
   useEffect(() => {
     void doLoad(false);
-  }, [tickerKey, settings.demo, settings.brapiToken]);
+  }, [tickerKey, settings.demo]);
 
   const value: Ctx = {
     trades,

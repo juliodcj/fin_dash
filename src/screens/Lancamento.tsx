@@ -7,7 +7,8 @@ import type { Side } from '../lib/types';
 import { href, navigate } from '../router';
 import { useApp } from '../state';
 
-const TICKER_RE = /^[A-Z]{4}\d{1,2}F?$/;
+// raiz de 4 caracteres (pode ter dígitos, ex.: B5P211) + número da classe
+const TICKER_RE = /^[A-Z][A-Z0-9]{3}\d{1,2}F?$/;
 
 export function Lancamento({ initialTicker }: { initialTicker?: string }) {
   const { trades, addTrade } = useApp();

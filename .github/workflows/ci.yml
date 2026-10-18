@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # republica com as cotações do dia, após o fechamento da B3 (18h30 de Brasília, seg–sex)
+  schedule:
+    - cron: '30 21 * * 1-5'
 
 permissions:
   contents: read
@@ -19,6 +22,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm run quotes
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

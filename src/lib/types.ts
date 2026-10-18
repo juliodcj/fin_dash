@@ -48,7 +48,6 @@ export interface Settings {
   /** rentabilidade de períodos acima de 12 meses exibida ao ano */
   annualize: boolean;
   defaultPeriod: Period;
-  brapiToken: string;
   demo: boolean;
   /** metas de alocação por ticker, em fração */
   targets: Record<string, number>;

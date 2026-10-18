@@ -1,4 +1,5 @@
 node_modules
 dist
+public/quotes
 *.log
 .DS_Store

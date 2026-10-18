@@ -10,11 +10,13 @@ Feito primeiro para celular (testado na largura do Galaxy S23, 360 px), com layo
 - **Ativo**: posição (quantidade, preço médio, resultado, lucro realizado), a mesma análise de rentabilidade e a lista de lançamentos, com exclusão.
 - **Análise** (carteira ou um ativo, pela lista suspensa): tabela por período, aportes × rendimento mês a mês, drawdown, retornos mensais por ano e indicadores de 12 meses.
 - **Lançar**: compra ou venda com preço por cota digitado por você; vendas acima do saldo são bloqueadas.
-- **Ajustes**: anualizar períodos acima de 12 meses (ligado por padrão), período padrão, metas de alocação, token da brapi, modo demonstração, backup em arquivo e carteira exemplo (70% WRLD11 / 30% B5P211, aporte mensal de R$ 1.000 desde jan/24).
+- **Ajustes**: anualizar períodos acima de 12 meses (ligado por padrão), período padrão, metas de alocação, modo demonstração, backup em arquivo e carteira exemplo (70% WRLD11 / 30% B5P211, aporte mensal de R$ 1.000 desde jan/24).
 
 ## Dados
 
-- **Cotações**: [brapi.dev](https://brapi.dev). Crie um token gratuito e cole em Ajustes. O plano gratuito pode limitar o histórico disponível; se faltar histórico, o app avisa no topo da Carteira.
+- **Cotações**: Yahoo Finance, gratuito e sem token, com até 10 anos de histórico diário (fechamento e fechamento ajustado). O Yahoo não aceita chamadas direto do navegador, então `scripts/quotes.mjs` grava as cotações em `quotes/<TICKER>.json`:
+  - no site publicado, o CI baixa os tickers de [`tickers.txt`](tickers.txt) a cada push e todo dia útil às 18h30 (Brasília). **Ativo novo na carteira? Inclua o ticker em `tickers.txt` e faça push.**
+  - no `npm run dev`, qualquer ticker é buscado na hora.
 - **CDI e IPCA**: API pública do Banco Central (SGS, séries 12 e 433), sem token.
 - **Modo demonstração**: cotações e índices simulados, para ver o app sem internet ou sem token.
 - Lançamentos, ajustes e cache de cotações ficam só no aparelho (localStorage). Use Ajustes › Backup para exportar.
@@ -33,6 +35,7 @@ Feito primeiro para celular (testado na largura do Galaxy S23, 360 px), com layo
 npm install
 npm run dev      # http://localhost:5173
 npm test         # testes dos cálculos
+npm run quotes   # baixa as cotações de tickers.txt para public/quotes (opcional antes do build)
 npm run build    # gera dist/
 ```
 

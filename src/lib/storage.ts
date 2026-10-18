@@ -39,7 +39,6 @@ export function clearAll() {
 export const DEFAULT_SETTINGS: Settings = {
   annualize: true,
   defaultPeriod: '12M',
-  brapiToken: '',
   demo: false,
   targets: {},
 };

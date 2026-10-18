@@ -9,14 +9,13 @@ import { usePortfolio } from '../useData';
 export function Ajustes() {
   const { settings, updateSettings, trades, replaceAll, resetAll, loadSample } = useApp();
   const p = usePortfolio();
-  const [token, setToken] = useState(settings.brapiToken);
   const [msg, setMsg] = useState('');
   const [sampleMsg, setSampleMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const targetSum = Object.values(settings.targets).reduce((a, b) => a + b, 0);
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ version: 1, trades, settings: { ...settings, brapiToken: '' } }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ version: 1, trades, settings }, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `fin-dash-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -31,8 +30,8 @@ export function Ajustes() {
       const ok = data.trades.every((t) => t && typeof t.ticker === 'string' && typeof t.date === 'string' && t.qty > 0 && t.price > 0);
       if (!ok) throw new Error('lançamentos inválidos');
       if (!confirm(`Substituir os lançamentos atuais por ${data.trades.length} do arquivo?`)) return;
-      const s = { ...data.settings };
-      delete s.brapiToken;
+      // backups antigos trazem o token da brapi, que não é mais usado
+      const { brapiToken: _, ...s } = { ...data.settings } as Partial<Settings> & { brapiToken?: string };
       replaceAll(data.trades.map((t) => ({ ...t, fees: t.fees ?? 0 })), s);
       setMsg('Backup importado.');
     } catch (e) {
@@ -96,16 +95,9 @@ export function Ajustes() {
 
       <section className="card">
         <h2>Dados de mercado</h2>
-        <div className="field">
-          <label htmlFor="token">Token da brapi.dev</label>
-          <div className="inline">
-            <input id="token" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value.trim())} placeholder="cole aqui seu token" />
-            <button type="button" className="btn small" disabled={token === settings.brapiToken} onClick={() => updateSettings({ brapiToken: token })}>Salvar</button>
-          </div>
-          <span className="hint">
-            Crie um token gratuito em <a href="https://brapi.dev/dashboard" target="_blank" rel="noreferrer">brapi.dev</a>. Ele fica salvo só neste aparelho. CDI e IPCA vêm do Banco Central e não precisam de token.
-          </span>
-        </div>
+        <p className="muted small">
+          Cotações do último fechamento da B3 (Yahoo Finance), atualizadas uma vez por dia. CDI e IPCA vêm do Banco Central. Nada disso precisa de cadastro ou token.
+        </p>
         <Toggle id="demo" checked={settings.demo} onChange={(v) => updateSettings({ demo: v })} label="Modo demonstração" hint="Usa cotações e índices simulados, sem internet." />
       </section>
 
