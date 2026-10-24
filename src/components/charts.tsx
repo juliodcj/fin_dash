@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import type { MonthFlow } from '../lib/finance';
 import { brl0, pct } from '../lib/format';
 import { monthLabel } from '../lib/dates';
@@ -20,10 +20,13 @@ function useWidth<T extends HTMLElement>() {
 
 /**
  * Ponto sob o mouse ou o dedo. `toIndex` converte a posição x (px, relativa ao SVG) no índice.
- * No toque, o valor fica na tela depois de soltar o dedo; some ao tocar fora do gráfico.
+ * No toque, o valor só aparece ao arrastar o dedo para os lados — tocar ou rolar a tela na
+ * vertical não abre o rótulo. Depois de soltar o dedo, o valor fica; some ao tocar fora do gráfico.
  */
 function useHover(toIndex: (x: number, width: number) => number | null) {
   const [hover, setHover] = useState<number | null>(null);
+  /** início do toque, enquanto ainda não se sabe se o gesto é rolagem ou arrasto lateral */
+  const start = useRef<{ id: number; x: number; y: number; active: boolean } | null>(null);
   const at = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     setHover(toIndex(e.clientX - r.left, r.width));
@@ -35,8 +38,24 @@ function useHover(toIndex: (x: number, width: number) => number | null) {
     return () => document.removeEventListener('pointerdown', off);
   }, [hover]);
   const handlers = {
-    onPointerDown: at,
-    onPointerMove: at,
+    onPointerDown: (e: PointerEvent<SVGSVGElement>) => {
+      if (e.pointerType === 'mouse') return at(e);
+      start.current = { id: e.pointerId, x: e.clientX, y: e.clientY, active: false };
+    },
+    onPointerMove: (e: PointerEvent<SVGSVGElement>) => {
+      if (e.pointerType === 'mouse') return at(e);
+      const s = start.current;
+      if (!s || s.id !== e.pointerId) return;
+      if (!s.active) {
+        const dx = Math.abs(e.clientX - s.x), dy = Math.abs(e.clientY - s.y);
+        if (dx < 8 || dx <= dy) return;
+        s.active = true;
+      }
+      at(e);
+    },
+    onPointerUp: () => { start.current = null; },
+    // o navegador assumiu a rolagem vertical (touch-action: pan-y)
+    onPointerCancel: () => { start.current = null; },
     onPointerLeave: (e: PointerEvent<SVGSVGElement>) => { if (e.pointerType === 'mouse') setHover(null); },
   };
   return [hover, handlers] as const;
