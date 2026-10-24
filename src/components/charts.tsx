@@ -263,102 +263,140 @@ function moneyAxis(mx: number, maxSteps: number) {
   return { hi: Math.max(step, Math.ceil(mx / step - 1e-9) * step), step };
 }
 
+const LOSS = '#B42318';
+const INVESTED = '#B9CBF4';
+
 function FlowTip({ f, color }: { f: MonthFlow; color: string }) {
   const gain = f.value - f.invested;
   return (
     <>
       <b>{monthLabel(f.month)}</b>
-      <span className="tip-row"><i style={{ background: '#B9CBF4' }} />Aportado {brl0(f.invested)}</span>
-      <span className="tip-row"><i style={{ background: gain < 0 ? '#B42318' : color }} />Rendimento {brl0(gain)}</span>
+      <span className="tip-row"><i style={{ background: INVESTED }} />Aportado {brl0(f.invested)}</span>
+      <span className="tip-row"><i style={{ background: gain < 0 ? LOSS : color }} />Rendimento {brl0(gain)}</span>
       <span className="tip-row">Patrimônio {brl0(f.value)}</span>
     </>
   );
 }
 
-/** Barras mensais: aportado (claro) + rendimento (cor) — ou perda (vermelho) quando o patrimônio fica abaixo do aportado. */
+/**
+ * Polígonos das áreas empilhadas: abaixo do menor entre aportado e patrimônio fica o aportado (claro);
+ * entre os dois, rendimento (cor) quando o patrimônio está acima e perda (vermelho) quando está abaixo.
+ */
+function flowShapes(flows: MonthFlow[], X: (i: number) => number, Y: (v: number) => number) {
+  const n = flows.length;
+  const pts = (get: (f: MonthFlow) => number) => flows.map((f, i) => `${X(i).toFixed(1)},${Y(get(f)).toFixed(1)}`);
+  const value = pts((f) => f.value);
+  const invested = pts((f) => f.invested);
+  const low = pts((f) => Math.min(f.value, f.invested));
+  const base = Y(0).toFixed(1);
+  const under = (line: string[]) => `${X(0).toFixed(1)},${base} ${line.join(' ')} ${X(n - 1).toFixed(1)},${base}`;
+  return {
+    band: [...invested, ...[...value].reverse()].join(' '),
+    underValue: under(value),
+    underLow: under(low),
+    valueLine: value.join(' '),
+    investedLine: invested.join(' '),
+  };
+}
+
+function FlowAreas({ flows, X, Y, color, nonScaling }: { flows: MonthFlow[]; X: (i: number) => number; Y: (v: number) => number; color: string; nonScaling?: boolean }) {
+  const sh = flowShapes(flows, X, Y);
+  const ve = nonScaling ? 'non-scaling-stroke' : undefined;
+  return (
+    <>
+      <polygon points={sh.band} fill={LOSS} opacity={0.75} />
+      <polygon points={sh.underValue} fill={color} opacity={0.85} />
+      <polygon points={sh.underLow} fill={INVESTED} />
+      <polyline points={sh.investedLine} fill="none" stroke="#8FA9E6" strokeWidth={1} vectorEffect={ve} />
+      <polyline points={sh.valueLine} fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" vectorEffect={ve} />
+    </>
+  );
+}
+
+/** Patrimônio mês a mês em áreas empilhadas: aportado (claro) + rendimento (cor) ou perda (vermelho). Serve para qualquer número de meses. */
 export function FlowsChart({ flows, color, height = 200 }: { flows: MonthFlow[]; color: string; height?: number }) {
   const [ref, w] = useWidth<HTMLDivElement>();
   const n = flows.length;
   const W = Math.max(w, 200);
   const L = 40, R = W - 6, T = 10, B = height - 28;
-  const slot = (R - L) / Math.max(n, 1);
-  const [hover, on] = useHover((x) => (x < L ? null : clampIdx(Math.floor((x - L) / slot), n)));
-  if (!n) return <p className="chart-empty">Ainda não há meses completos para mostrar.</p>;
+  const [hover, on] = useHover((x) => (x < L - 8 ? null : clampIdx(Math.round(((x - L) / (R - L)) * (n - 1)), n)));
+  if (n < 2) return <p className="chart-empty">Ainda não há meses suficientes para o gráfico.</p>;
   const { hi, step } = moneyAxis(Math.max(...flows.map((f) => Math.max(f.value, f.invested)), 1), 5);
   const ticks: number[] = [];
   for (let v = hi; v >= 0; v -= step) ticks.push(v);
+  const X = (i: number) => L + (i / (n - 1)) * (R - L);
   const Y = (v: number) => B - (v / hi) * (B - T);
-  const bw = Math.max(1, slot - 2);
-  const xi = [0, Math.round((n - 1) / 3), Math.round((2 * (n - 1)) / 3), n - 1];
+  const last = flows[n - 1];
+  const dot = (f: MonthFlow) => (f.value < f.invested ? LOSS : color);
   return (
     <div ref={ref} className="chart" style={{ height }}>
       {w > 0 && (
         <svg width={W} height={height} role="img" {...on}
-          aria-label={`Gráfico de barras mensais do patrimônio dividido entre valor aportado e rendimento, de ${monthLabel(flows[0].month)} a ${monthLabel(flows[n - 1].month)}`}>
+          aria-label={`Gráfico do patrimônio mês a mês, dividido entre valor aportado e rendimento, de ${monthLabel(flows[0].month)} a ${monthLabel(last.month)}`}>
           {ticks.filter((t) => t > 0).map((t) => <line key={t} x1={L} x2={R} y1={Y(t)} y2={Y(t)} stroke={GRID} />)}
-          {flows.map((f, i) => {
-            const x = L + i * slot + 1;
-            const low = Math.min(f.invested, f.value);
-            return (
-              <g key={f.month} opacity={hover == null || hover === i ? 1 : 0.55}>
-                <rect x={x} width={bw} y={Y(low)} height={Math.max(0, B - Y(low))} fill="#B9CBF4" />
-                {f.value > f.invested && <rect x={x} width={bw} y={Y(f.value)} height={Y(f.invested) - Y(f.value)} fill={color} />}
-                {f.value < f.invested && <rect x={x} width={bw} y={Y(f.invested)} height={Y(f.value) - Y(f.invested)} fill="#B42318" opacity={0.75} />}
-              </g>
-            );
-          })}
+          <FlowAreas flows={flows} X={X} Y={Y} color={color} />
           <line x1={L} x2={L} y1={T} y2={B} stroke={AXIS} />
           <line x1={L} x2={R} y1={B} y2={B} stroke={AXIS} />
           {ticks.map((t) => <text key={t} x={L - 5} y={Y(t) + 3.5} textAnchor="end" className="axis-label">{money(t)}</text>)}
-          {[...new Set(xi)].map((i, k, all) => (
-            <text key={i} x={k === 0 ? L : k === all.length - 1 ? R : L + (i + 0.5) * slot} y={B + 20} className="axis-label"
+          {xTickIdx(n).map((i, k, all) => (
+            <text key={i} x={X(i)} y={B + 20} className="axis-label"
               textAnchor={k === 0 ? 'start' : k === all.length - 1 ? 'end' : 'middle'}>{monthLabel(flows[i].month)}</text>
           ))}
+          {hover == null && <circle cx={X(n - 1)} cy={Y(last.value)} r={4} fill={dot(last)} stroke="#fff" strokeWidth={2} />}
+          {hover != null && (
+            <>
+              <line x1={X(hover)} x2={X(hover)} y1={T} y2={B} className="hover-line" />
+              <circle cx={X(hover)} cy={Y(flows[hover].invested)} r={3.5} fill={INVESTED} stroke="#fff" strokeWidth={1.5} />
+              <circle cx={X(hover)} cy={Y(flows[hover].value)} r={3.5} fill={dot(flows[hover])} stroke="#fff" strokeWidth={1.5} />
+            </>
+          )}
         </svg>
       )}
-      {hover != null && <Tooltip x={L + (hover + 0.5) * slot} width={W}><FlowTip f={flows[hover]} color={color} /></Tooltip>}
+      {hover != null && <Tooltip x={X(hover)} width={W}><FlowTip f={flows[hover]} color={color} /></Tooltip>}
     </div>
   );
 }
 
-/** Barras mensais (web): 180 px, escala em R$ com o topo, o meio e o zero. */
-export function WideFlowsChart({ flows, color }: { flows: MonthFlow[]; color: string }) {
+/** Patrimônio mês a mês (web): 180 px, escala em R$ com o topo, o meio e o zero; `hideValues` esconde os valores em R$. */
+export function WideFlowsChart({ flows, color, hideValues }: { flows: MonthFlow[]; color: string; hideValues?: boolean }) {
   const [ref, w] = useWidth<HTMLDivElement>();
   const n = flows.length;
-  const [hover, on] = useHover((x, width) => clampIdx(Math.floor((x / width) * n), n));
-  if (!n) return <p className="chart-empty">Ainda não há meses completos para mostrar.</p>;
+  const [hover, on] = useHover((x, width) => (hideValues ? null : clampIdx(Math.round((x / width) * (n - 1)), n)));
+  if (n < 2) return <p className="chart-empty">Ainda não há meses suficientes para o gráfico.</p>;
   const { hi } = moneyAxis(Math.max(...flows.map((f) => Math.max(f.value, f.invested)), 1), 2);
+  const X = (i: number) => (i / (n - 1)) * 800;
   const Y = (v: number) => 176 - (v / hi) * 168;
-  const slot = 800 / n;
-  const bw = Math.max(1, slot - 4);
   // eixo de 48 px como no protótipo; cresce quando o rótulo é mais longo ("R$ 500 mil")
-  const lw = Math.max(48, `R$ ${money(hi)}`.length * 6);
+  const lw = hideValues ? 0 : Math.max(48, `R$ ${money(hi)}`.length * 6);
   const plotW = Math.max(0, w - lw - 8);
+  const hx = (i: number) => lw + 8 + (i / (n - 1)) * plotW;
+  const dot = (f: MonthFlow) => (f.value < f.invested ? LOSS : color);
   return (
     <div ref={ref} className="wide-chart" style={{ paddingLeft: lw + 8 }}>
-      <span className="wide-ylabel" style={{ top: 0, width: lw }}>R$ {money(hi)}</span>
-      <span className="wide-ylabel" style={{ top: 84, width: lw }}>R$ {money(hi / 2)}</span>
-      <span className="wide-ylabel" style={{ top: 168, width: lw }}>0</span>
+      {!hideValues && (
+        <>
+          <span className="wide-ylabel" style={{ top: 0, width: lw }}>R$ {money(hi)}</span>
+          <span className="wide-ylabel" style={{ top: 84, width: lw }}>R$ {money(hi / 2)}</span>
+          <span className="wide-ylabel" style={{ top: 168, width: lw }}>0</span>
+        </>
+      )}
       <svg role="img" width="100%" height="180" viewBox="0 0 800 180" preserveAspectRatio="none" style={{ display: 'block' }} {...on}
-        aria-label={`Gráfico de barras mensais do patrimônio dividido entre valor aportado e rendimento, de ${monthLabel(flows[0].month)} a ${monthLabel(flows[n - 1].month)}`}>
+        aria-label={`Gráfico do patrimônio mês a mês, dividido entre valor aportado e rendimento, de ${monthLabel(flows[0].month)} a ${monthLabel(flows[n - 1].month)}`}>
         <line x1={0} x2={800} y1={8} y2={8} stroke={GRID} vectorEffect="non-scaling-stroke" />
         <line x1={0} x2={800} y1={92} y2={92} stroke={GRID} vectorEffect="non-scaling-stroke" />
-        {flows.map((f, i) => {
-          const x = i * slot + 2;
-          const low = Math.min(f.invested, f.value);
-          return (
-            <g key={f.month} opacity={hover == null || hover === i ? 1 : 0.55}>
-              <rect x={x} width={bw} y={Y(low)} height={Math.max(0, 176 - Y(low))} fill="#B9CBF4" />
-              {f.value > f.invested && <rect x={x} width={bw} y={Y(f.value)} height={Y(f.invested) - Y(f.value)} fill={color} />}
-              {f.value < f.invested && <rect x={x} width={bw} y={Y(f.invested)} height={Y(f.value) - Y(f.invested)} fill="#B42318" opacity={0.75} />}
-            </g>
-          );
-        })}
+        <FlowAreas flows={flows} X={X} Y={Y} color={color} nonScaling />
         <line x1={0} x2={800} y1={176} y2={176} stroke={AXIS} vectorEffect="non-scaling-stroke" />
+        {hover != null && <line x1={X(hover)} x2={X(hover)} y1={8} y2={176} className="hover-line" vectorEffect="non-scaling-stroke" />}
       </svg>
-      {hover != null && <Tooltip x={lw + 8 + ((hover + 0.5) / n) * plotW} width={w}><FlowTip f={flows[hover]} color={color} /></Tooltip>}
+      {hover != null && (
+        <>
+          <span className="wide-dot" style={{ left: hx(hover), top: Y(flows[hover].invested), background: INVESTED }} />
+          <span className="wide-dot" style={{ left: hx(hover), top: Y(flows[hover].value), background: dot(flows[hover]) }} />
+          <Tooltip x={hx(hover)} width={w}><FlowTip f={flows[hover]} color={color} /></Tooltip>
+        </>
+      )}
       <div className="wide-xlabels">
-        {[...new Set([0, Math.round((n - 1) / 3), Math.round((2 * (n - 1)) / 3), n - 1])].map((i) => <span key={i}>{monthLabel(flows[i].month)}</span>)}
+        {xTickIdx(n).map((i) => <span key={i}>{monthLabel(flows[i].month)}</span>)}
       </div>
     </div>
   );

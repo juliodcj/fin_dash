@@ -8,19 +8,20 @@ import { isAnnualized, monthlyFlows, PERIODS, realGain, shownReturn, stats, year
 import { brl, brl0, brlSigned, pct, qty, ratio, signed, tone } from '../lib/format';
 import type { Period } from '../lib/types';
 import { href } from '../router';
-import { useApp } from '../state';
-import { colorFor, usePortfolio, useSubject } from '../useData';
-import { StatusLine } from './common';
+import { useApp, useMoney } from '../state';
+import { classAlloc, classColor, usePortfolio, useSubject } from '../useData';
+import { EyeButton, StatusLine } from './common';
 
 const ACCENT = '#1F4FD1';
 
 /** Painel da carteira para telas largas (artboard "Web · Painel" do protótipo). */
 export function Painel() {
   const { settings } = useApp();
+  const money = useMoney();
   const p = usePortfolio();
   const subject = useSubject();
   const [period, setPeriod] = useState<Period>(settings.defaultPeriod);
-  const tickers = p.holdings.map((h) => h.ticker);
+  const alloc = classAlloc(p.holdings, settings);
 
   // links da barra lateral para seções desta página (#ativos)
   useEffect(() => {
@@ -54,19 +55,22 @@ export function Painel() {
 
       <section className="kpis">
         <div className="kpi">
-          <span className="kpi-label">Patrimônio</span>
-          <span className="kpi-value">{brl(p.total)}</span>
-          <span className="kpi-sub">investido {brl(p.invested)}</span>
+          <span className="kpi-label">
+            Patrimônio
+            <EyeButton size={16} />
+          </span>
+          <span className="kpi-value">{money(brl(p.total))}</span>
+          <span className="kpi-sub">investido {money(brl(p.invested))}</span>
         </div>
         <div className="kpi">
           <span className="kpi-label">Hoje</span>
           <span className={`kpi-value ${tone(p.today)}`}>{pct(p.todayPct)}</span>
-          <span className={`kpi-sub strong ${tone(p.today)}`}>{brlSigned(p.today)}</span>
+          <span className={`kpi-sub strong ${tone(p.today)}`}>{money(brlSigned(p.today))}</span>
         </div>
         <div className="kpi">
           <span className="kpi-label">Rentabilidade · {pl}{ann ? ' a.a.' : ''}{method === 'mwrr' ? ' · MWRR' : ''}</span>
           <span className={`kpi-value ${tone(s?.ret)}`}>{pct(show(s?.ret ?? null))}</span>
-          {s && <span className={`kpi-sub strong ${tone(s.gain)}`}>{brlSigned(s.gain)}</span>}
+          {s && <span className={`kpi-sub strong ${tone(s.gain)}`}>{money(brlSigned(s.gain))}</span>}
         </div>
         <div className="kpi">
           <span className="kpi-label">% do CDI · {pl}</span>
@@ -96,17 +100,20 @@ export function Painel() {
         </section>
 
         <section className="pcard alloc-card">
-          <h2>Alocação</h2>
+          <h2>Alocação por classe</h2>
           <div className="alloc-list">
-            {p.holdings.map((h) => {
-              const target = settings.targets[h.ticker];
-              return (
-                <div key={h.ticker} className="alloc-item">
-                  <div className="alloc-line"><b>{h.ticker}</b><span><b>{pct(h.weight, 1, false)}</b>{target != null && <span className="muted"> / alvo {pct(target, 0, false)}</span>}</span></div>
-                  <div className="alloc-track"><div style={{ width: `${h.weight * 100}%`, background: colorFor(h.ticker, tickers) }} /></div>
+            {alloc.map((c) => (
+              <div key={c.name} className="alloc-item">
+                <div className="alloc-line">
+                  <span><b>{c.name}</b>{c.tickers.length > 0 && <span className="muted"> · {c.tickers.join(', ')}</span>}</span>
+                  <span><b>{pct(c.weight, 1, false)}</b>{c.target != null && <span className="muted"> / alvo {pct(c.target, 0, false)}</span>}</span>
                 </div>
-              );
-            })}
+                <div className="alloc-track">
+                  <div style={{ width: `${c.weight * 100}%`, background: classColor(c.name) }} />
+                  {c.target != null && <i className="alloc-target" style={{ left: `${c.target * 100}%` }} />}
+                </div>
+              </div>
+            ))}
           </div>
           {s && (
             <div className="alloc-metrics">
@@ -143,11 +150,11 @@ export function Painel() {
                     <th scope="row">
                       <a href={href.ativo(h.ticker)} className="asset-cell"><b>{h.ticker}</b><span>{describe(h.ticker, h.name)}</span></a>
                     </th>
-                    <td>{qty(h.qty)}</td>
+                    <td>{settings.hideValues ? '•••' : qty(h.qty)}</td>
                     <td>{brl(h.avgPrice)}</td>
                     <td className="semi">{brl(h.price)}</td>
                     <td className={`semi ${tone(h.changePct)}`}>{pct(h.changePct)}</td>
-                    <td className="semi">{brl(h.value)}</td>
+                    <td className="semi">{money(brl(h.value))}</td>
                     <td className={`strong ${tone(h.result)}`}>{pct(h.result)}</td>
                   </tr>
                 ))}
@@ -201,18 +208,18 @@ export function Painel() {
             <h2>Aportes × rendimento</h2>
             <div className="flows-num">
               <span className="kpi-label"><i className="sw" style={{ background: '#B9CBF4' }} />Aportado</span>
-              <b>{brl0(last.invested)}</b>
+              <b>{money(brl0(last.invested))}</b>
               <span className="kpi-sub">{last.value > 0 ? `${pct(last.invested / last.value, 0, false)} do patrimônio` : ''}</span>
             </div>
             <div className="flows-num">
               <span className="kpi-label"><i className="sw" style={{ background: ACCENT }} />Rendimento</span>
-              <b className={tone(last.value - last.invested)}>{brl0(last.value - last.invested)}</b>
+              <b className={tone(last.value - last.invested)}>{money(brl0(last.value - last.invested))}</b>
               <span className="kpi-sub">
-                {[last.value > 0 ? pct((last.value - last.invested) / last.value, 0, false) : '', ...income.map((x) => `${x.ticker} ${brl0(x.value)}`)].filter(Boolean).join(' · ')}
+                {[last.value > 0 ? pct((last.value - last.invested) / last.value, 0, false) : '', ...income.map((x) => `${x.ticker} ${money(brl0(x.value))}`)].filter(Boolean).join(' · ')}
               </span>
             </div>
           </div>
-          <div className="flows-chart"><WideFlowsChart flows={flows} color={ACCENT} /></div>
+          <div className="flows-chart"><WideFlowsChart flows={flows} color={ACCENT} hideValues={settings.hideValues} /></div>
         </section>
       )}
 

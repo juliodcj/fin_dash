@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
 import { Icon, Toggle } from '../components/ui';
+import { classOf, CLASSES } from '../lib/assets';
 import { PERIODS } from '../lib/finance';
 import { parseNumberBR, pct } from '../lib/format';
 import type { Period, Settings, Trade } from '../lib/types';
 import { useApp } from '../state';
-import { usePortfolio } from '../useData';
+import { classAlloc, usePortfolio } from '../useData';
 
 export function Ajustes() {
   const { settings, updateSettings, trades, replaceAll, resetAll, loadSample } = useApp();
@@ -12,6 +13,7 @@ export function Ajustes() {
   const [msg, setMsg] = useState('');
   const [sampleMsg, setSampleMsg] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const alloc = classAlloc(p.holdings, settings);
   const targetSum = Object.values(settings.targets).reduce((a, b) => a + b, 0);
 
   const exportJson = () => {
@@ -78,22 +80,22 @@ export function Ajustes() {
       {p.holdings.length > 0 && (
         <section className="card">
           <h2>Metas de alocação</h2>
-          <p className="muted small">Opcional. Aparece ao lado da alocação atual de cada ativo.</p>
-          {p.holdings.map((h) => (
-            <div key={h.ticker} className="field-row">
-              <label htmlFor={`t-${h.ticker}`}>{h.ticker}<span className="muted small"> · atual {pct(h.weight, 1, false)}</span></label>
+          <p className="muted small">Opcional. A meta é por classe de ativo e aparece ao lado da alocação atual.</p>
+          {alloc.map((c) => (
+            <div key={c.name} className="field-row">
+              <label htmlFor={`t-${c.name}`}>{c.name}<span className="muted small"> · atual {pct(c.weight, 1, false)}</span></label>
               <div className="suffix">
                 <input
-                  key={`${h.ticker}-${settings.targets[h.ticker] ?? ''}`}
-                  id={`t-${h.ticker}`}
+                  key={`${c.name}-${c.target ?? ''}`}
+                  id={`t-${c.name}`}
                   inputMode="decimal"
-                  defaultValue={settings.targets[h.ticker] != null ? String(Math.round(settings.targets[h.ticker] * 1000) / 10).replace('.', ',') : ''}
+                  defaultValue={c.target != null ? String(Math.round(c.target * 1000) / 10).replace('.', ',') : ''}
                   placeholder="—"
                   onBlur={(e) => {
                     const v = parseNumberBR(e.target.value);
                     const targets = { ...settings.targets };
-                    if (Number.isFinite(v) && v >= 0 && v <= 100) targets[h.ticker] = v / 100;
-                    else delete targets[h.ticker];
+                    if (Number.isFinite(v) && v >= 0 && v <= 100) targets[c.name] = v / 100;
+                    else delete targets[c.name];
                     updateSettings({ targets });
                   }}
                 />
@@ -102,6 +104,23 @@ export function Ajustes() {
             </div>
           ))}
           {targetSum > 0 && Math.abs(targetSum - 1) > 0.001 && <p className="field-error">As metas somam {pct(targetSum, 1, false)}; o ideal é 100%.</p>}
+
+          <h3 className="small-title sub-title">Classe de cada ativo</h3>
+          {p.holdings.map((h) => (
+            <div key={h.ticker} className="field-row">
+              <label htmlFor={`c-${h.ticker}`}>{h.ticker}</label>
+              <div className="select-wrap">
+                <select
+                  id={`c-${h.ticker}`}
+                  value={classOf(h.ticker, settings.classes, h.name)}
+                  onChange={(e) => updateSettings({ classes: { ...settings.classes, [h.ticker]: e.target.value } })}
+                >
+                  {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                {Icon.down(16)}
+              </div>
+            </div>
+          ))}
         </section>
       )}
 

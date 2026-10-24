@@ -1,4 +1,5 @@
 // Tudo fica salvo só neste aparelho (localStorage).
+import { migrateTargets } from './assets';
 import type { Settings, Trade } from './types';
 
 const PREFIX = 'findash:';
@@ -42,10 +43,18 @@ export const DEFAULT_SETTINGS: Settings = {
   method: 'twr',
   demo: false,
   targets: {},
+  classes: {},
+  hideValues: false,
 };
 
 export const loadTrades = () => load<Trade[]>('trades', []);
-export const loadSettings = (): Settings => ({ ...DEFAULT_SETTINGS, ...load<Partial<Settings>>('settings', {}) });
+export const loadSettings = (): Settings => withDefaults(load<Partial<Settings>>('settings', {}));
+
+/** ajustes salvos ou importados, com os padrões e as metas antigas (por ticker) convertidas em metas por classe */
+export function withDefaults(s: Partial<Settings>): Settings {
+  const out = { ...DEFAULT_SETTINGS, ...s };
+  return { ...out, targets: migrateTargets(out.targets, out.classes) };
+}
 
 interface Cached<T> {
   at: number;

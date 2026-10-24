@@ -3,6 +3,7 @@ import { dateBR, dayMonth, monthLabel } from '../lib/dates';
 import { isAnnualized, mwrr, PERIODS, realGain, shownReturn, stats, type Stats } from '../lib/finance';
 import { brlSigned, pct, ratio, signed, tone } from '../lib/format';
 import type { Method, Period } from '../lib/types';
+import { useMoney } from '../state';
 import type { Subject } from '../useData';
 import { chartPoints, LineChart, type ChartLine } from './charts';
 import { Icon, Legend, PeriodPicker } from './ui';
@@ -59,6 +60,8 @@ interface Props {
 
 export function ReturnCard({ subject, label, color, period, onPeriod, annualize, method, variant }: Props) {
   const [open, setOpen] = useState(false);
+  const mask = useMoney();
+  const money = variant === 'portfolio' ? mask : (t: string) => t;
   const s = stats(subject.series, subject.bench, period, method);
   const ann = isAnnualized(annualize, s.days);
   const show = (r: number | null) => shownReturn(r, s.days, annualize);
@@ -81,7 +84,7 @@ export function ReturnCard({ subject, label, color, period, onPeriod, annualize,
         <div>
           <Legend color={color}>{label}</Legend>
           <span className={`big ${tone(s.ret)}`}>{pct(show(s.ret))}</span>
-          <span className={`gain ${tone(s.gain)}`}>{brlSigned(s.gain)}</span>
+          <span className={`gain ${tone(s.gain)}`}>{money(brlSigned(s.gain))}</span>
         </div>
         <div>
           <Legend color={CDI_COLOR}>CDI</Legend>

@@ -3,7 +3,7 @@ import { fetchCDI, fetchIPCA, fetchQuote } from './lib/api';
 import { addMonths, todayISO } from './lib/dates';
 import { demoCDI, demoIPCA, demoQuote } from './lib/demo';
 import { cleanMarket } from './lib/quality';
-import { cached, clearAll, loadSettings, loadTrades, newId, putCache, save } from './lib/storage';
+import { cached, clearAll, loadSettings, loadTrades, newId, putCache, save, withDefaults } from './lib/storage';
 import type { Market, PriceHistory, Settings, Trade } from './lib/types';
 
 const QUOTE_TTL = 15 * 60 * 1000;
@@ -31,6 +31,12 @@ export const useApp = () => {
   const c = useContext(AppCtx);
   if (!c) throw new Error('useApp fora do AppProvider');
   return c;
+};
+
+/** valor em R$ já formatado, ou oculto quando o olho da tela inicial está fechado */
+export const useMoney = () => {
+  const { settings } = useApp();
+  return (text: string) => (settings.hideValues ? 'R$ ••••••' : text);
 };
 
 async function loadQuote(ticker: string, from: string, settings: Settings, force: boolean): Promise<PriceHistory> {
@@ -143,7 +149,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refresh: () => void doLoad(true),
     replaceAll: (ts, s) => {
       setTrades(ts);
-      if (s) setSettings((cur) => ({ ...cur, ...s }));
+      if (s) setSettings((cur) => withDefaults({ ...cur, ...s }));
     },
     loadSample: async () => {
       const [w, b] = await Promise.all([
@@ -151,7 +157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loadQuote('B5P211', '2024-01-01', settings, false),
       ]);
       setTrades(sampleTrades(w, b));
-      setSettings((cur) => ({ ...cur, targets: { WRLD11: 0.7, B5P211: 0.3 } }));
+      setSettings((cur) => ({ ...cur, targets: { 'RV Internacional': 0.7, 'RF Brasil': 0.3 } }));
     },
     resetAll: () => {
       clearAll();

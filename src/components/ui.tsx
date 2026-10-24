@@ -23,6 +23,8 @@ export const Icon = {
   trend: (s?: number) => svg(<path d="M3 17l6-6 4 4 8-8" />, s),
   pie: (s?: number) => svg(<><circle cx="12" cy="12" r="9" /><path d="M12 3v9l6 4" /></>, s),
   list: (s?: number) => svg(<><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></>, s),
+  eye: (s?: number) => svg(<><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>, s),
+  eyeOff: (s?: number) => svg(<><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2" /><path d="M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><path d="M3 3l18 18" /></>, s),
   trash: (s?: number) => svg(<><path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></>, s),
 };
 

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { classOf, CLASSES } from './lib/assets';
 import { bench, buildSeries, positions, type Bench, type Position, type Series } from './lib/finance';
+import type { Settings } from './lib/types';
 import { useApp } from './state';
 
 export interface Holding extends Position {
@@ -72,3 +74,42 @@ export function usePortfolio() {
 /** cor fixa por ativo, na ordem em que aparecem na carteira */
 const PALETTE = ['#1F4FD1', '#7FA6F0', '#0F766E', '#D97706', '#7C3AED', '#DB2777', '#475569', '#65A30D'];
 export const colorFor = (ticker: string, all: string[]) => PALETTE[Math.max(0, all.indexOf(ticker)) % PALETTE.length];
+
+export interface ClassAlloc {
+  name: string;
+  value: number;
+  /** fração do patrimônio */
+  weight: number;
+  /** meta em fração, se houver */
+  target: number | null;
+  tickers: string[];
+}
+
+/** alocação por classe de ativo (as classes com meta aparecem mesmo zeradas), na ordem de CLASSES */
+export function classAlloc(holdings: Holding[], settings: Settings): ClassAlloc[] {
+  const map = new Map<string, ClassAlloc>();
+  const get = (name: string) => {
+    if (!map.has(name)) map.set(name, { name, value: 0, weight: 0, target: settings.targets[name] ?? null, tickers: [] });
+    return map.get(name)!;
+  };
+  for (const h of holdings) {
+    const c = get(classOf(h.ticker, settings.classes, h.name));
+    c.value += h.value;
+    c.weight += h.weight;
+    c.tickers.push(h.ticker);
+  }
+  for (const name of Object.keys(settings.targets)) get(name);
+  const order = (n: string) => { const i = (CLASSES as readonly string[]).indexOf(n); return i < 0 ? 99 : i; };
+  return [...map.values()].sort((a, b) => b.value - a.value || order(a.name) - order(b.name));
+}
+
+const CLASS_PALETTE: Record<string, string> = {
+  'RF Brasil': '#7FA6F0',
+  'RV Brasil': '#0F766E',
+  'RF Internacional': '#D97706',
+  'RV Internacional': '#1F4FD1',
+  FIIs: '#7C3AED',
+  Cripto: '#DB2777',
+  Outros: '#475569',
+};
+export const classColor = (name: string) => CLASS_PALETTE[name] ?? '#475569';

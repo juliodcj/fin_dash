@@ -1,3 +1,4 @@
+import { Icon } from '../components/ui';
 import { dateBR, monthLabel, todayISO, toISO } from '../lib/dates';
 import { issueText } from '../lib/quality';
 import type { Market } from '../lib/types';
@@ -29,17 +30,25 @@ export function ratesText(market: Market) {
   return [d.cdi && `CDI até ${dateBR(d.cdi)}`, d.ipca && `IPCA até ${monthLabel(d.ipca)}`].filter(Boolean).join(' · ');
 }
 
-/** "Atualizado hoje, 17:05 · cotações até 16/10 · B3 fechada" */
+/**
+ * Celular: "Cotações de 16/10 · atualizado 17:05" (cabe numa linha).
+ * Painel web (withRates): "Atualizado hoje, 17:05 · cotações até 16/10 · CDI até … · B3 fechada".
+ */
 export function statusText(market: Market, demo: boolean, withRates = false) {
   if (!market.updatedAt) return '';
   const t = new Date(market.updatedAt);
   const hm = t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const day = toISO(t) === todayISO() ? 'hoje' : t.toLocaleDateString('pt-BR');
+  const isToday = toISO(t) === todayISO();
   const q = dataDates(market).quotes;
+  const qd = q && dateBR(q).slice(0, q.slice(0, 4) === todayISO().slice(0, 4) ? 5 : 10);
+  if (!withRates) {
+    const at = isToday ? hm : `${t.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hm}`;
+    return [demo ? 'Demonstração' : qd && `Cotações de ${qd}`, `atualizado ${at}`].filter(Boolean).join(' · ');
+  }
   return [
-    `Atualizado ${day}, ${hm}`,
-    q && `cotações até ${dateBR(q).slice(0, q.slice(0, 4) === todayISO().slice(0, 4) ? 5 : 10)}`,
-    withRates && ratesText(market),
+    `Atualizado ${isToday ? 'hoje' : t.toLocaleDateString('pt-BR')}, ${hm}`,
+    qd && `cotações até ${qd}`,
+    ratesText(market),
     demo ? 'demonstração' : b3Open(new Date()) ? 'B3 aberta' : 'B3 fechada',
   ].filter(Boolean).join(' · ');
 }
@@ -70,5 +79,17 @@ export function QuoteIssues({ ticker }: { ticker?: string }) {
       <summary>{list.length === 1 ? '1 erro' : `${list.length} erros`} nas cotações{ticker ? '' : ` de ${[...new Set(list.map((x) => x.ticker))].join(', ')}`}</summary>
       <ul>{list.map((x) => <li key={`${x.ticker}${x.kind}${x.from}`}>{issueText(x)}</li>)}</ul>
     </details>
+  );
+}
+
+/** olho ao lado do patrimônio: oculta ou mostra os valores em R$ da tela inicial */
+export function EyeButton({ size = 18 }: { size?: number }) {
+  const { settings, updateSettings } = useApp();
+  const hidden = settings.hideValues;
+  return (
+    <button type="button" className="eye-btn" aria-pressed={hidden} aria-label={hidden ? 'Mostrar valores' : 'Ocultar valores'}
+      onClick={() => updateSettings({ hideValues: !hidden })}>
+      {hidden ? Icon.eyeOff(size) : Icon.eye(size)}
+    </button>
   );
 }

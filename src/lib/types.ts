@@ -55,8 +55,12 @@ export interface Settings {
   defaultPeriod: Period;
   method: Method;
   demo: boolean;
-  /** metas de alocação por ticker, em fração */
+  /** metas de alocação por classe de ativo, em fração */
   targets: Record<string, number>;
+  /** classe escolhida para cada ticker (os demais usam a classe deduzida, ver lib/assets) */
+  classes: Record<string, string>;
+  /** valores em R$ ocultos na tela inicial */
+  hideValues: boolean;
 }
 
 export interface Market {
