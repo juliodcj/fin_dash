@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fin Dash Celular</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: tela Carteira do app como é hoje, dentro de uma moldura de celular (só em telas largas);
+   Rentabilidade e Alocação usam os elementos do EasyUI (pill deslizante, área interativa, rosca, acordeão), com as cores do app.
+   Tema único claro, como o app. */
+:root {
+  --bg: #f6f6f3;
+  --card: #ffffff;
+  --ink: #15171a;
+  --ink-2: #3a3f46;
+  --muted: #5b6068;
+  --soft: #6b7079;
+  --line: #e3e3de;
+  --line-2: #eeeeea;
+  --fill: #f4f4f1;
+  --seg: #f1f1ee;
+  --accent: #1f4fd1;
+  --accent-bg: #f1f4fd;
+  --cdi: #d9730d;
+  --ipca: #8a8f98;
+  --pos: #127a4b;
+  --pos-bg: #e3f3ea;
+  --neg: #b42318;
+  --neg-bg: #fbe9e7;
+  --warn: #b45309;
+  --warn-bg: #fff6ec;
+  --c-rvi: #1f4fd1;
+  --c-rfb: #7fa6f0;
+  --c-rvb: #0f766e;
+  --c-fii: #7c3aed;
+  --desk: #e9e9e4;
+  --frame: #15171a;
+  --font: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 20px;
+  --spring: cubic-bezier(.22, 1.2, .36, 1);
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --shadow-pop: 0 10px 25px -8px rgba(21, 23, 26, .18), 0 0 0 1px rgba(21, 23, 26, .06);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-variant-numeric: tabular-nums; -webkit-tap-highlight-color: transparent; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+h2 { font-size: 16px; font-weight: 800; }
+button { font: inherit; color: inherit; cursor: pointer; }
+a { color: var(--accent); text-decoration: none; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+
+/* ---------- moldura ---------- */
+.stage { display: flex; justify-content: center; }
+.device { position: relative; width: 100%; }
+.status, .notch { display: none; }
+.scroll { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; }
+.notes { display: none; }
+
+@media (min-width: 560px) {
+  body { background: var(--desk); }
+  .stage {
+    gap: 48px; align-items: flex-start; padding-block: 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .device {
+    flex: none; width: 390px; height: 844px; border-radius: 54px; border: 12px solid var(--frame);
+    background: var(--bg); overflow: hidden; box-shadow: 0 40px 80px -30px rgba(21, 23, 26, .45);
+  }
+  .notch { display: block; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 112px; height: 32px; border-radius: 20px; background: var(--frame); z-index: 30; }
+  .status { display: flex; justify-content: space-between; align-items: center; height: 50px; padding: 0 30px 0 34px; font-size: 15px; font-weight: 700; position: absolute; inset: 0 0 auto; z-index: 25; background: var(--bg); }
+  .status i { display: inline-flex; gap: 5px; align-items: center; }
+  .scroll { position: absolute; inset: 50px 0 0; overflow-y: auto; scrollbar-width: none; padding-bottom: 96px; }
+  .scroll::-webkit-scrollbar { display: none; }
+  .tabbar { position: absolute; padding-bottom: 22px !important; }
+  .tabbar::after { content: ""; position: absolute; bottom: 7px; left: 50%; transform: translateX(-50%); width: 130px; height: 5px; border-radius: 3px; background: var(--ink); }
+}
+@media (min-width: 980px) {
+  .notes { display: flex; flex-direction: column; gap: 16px; width: 340px; padding-top: 40px; }
+  .notes h1 { font-size: 24px; }
+  .notes p { font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+  .note-card { background: var(--card); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); }
+  .note-card b { font-size: 14px; }
+  .note-card ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
+  .kept { font-size: 12px; color: var(--muted); }
+}
+
+/* ---------- tela (como no app) ---------- */
+.screen { display: flex; flex-direction: column; gap: 16px; padding: 0 12px; }
+.screen-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 4px 0; }
+.screen-head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.icon-btn { flex: none; width: 44px; height: 44px; border-radius: 22px; border: 1px solid var(--line); background: var(--card); display: inline-flex; align-items: center; justify-content: center; }
+.icon-btn.busy svg { animation: rot .9s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.hero { display: flex; flex-direction: column; gap: 6px; padding: 4px 4px 0; }
+.hero .label { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.eye-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -8px 0; border: 0; border-radius: 16px; background: transparent; color: var(--muted); }
+.hero-value { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+.today { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+.today .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 8px; background: var(--pos-bg); }
+.today.neg .chip { background: var(--neg-bg); }
+.duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.tile { background: var(--fill); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile.white { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.tile-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.tile-value { font-size: 16px; font-weight: 800; white-space: nowrap; line-height: 22px; }
+.hero .duo { margin-top: 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px; min-height: 28px; }
+.masked { filter: blur(7px); user-select: none; }
+
+/* ---------- NOVO: períodos com pill deslizante ---------- */
+.seg { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; background: var(--seg); border-radius: 12px; padding: 3px; }
+.seg button { position: relative; z-index: 1; height: 38px; border: 0; border-radius: 9px; background: transparent; color: #4a4f57; font-size: 13px; font-weight: 700; transition: color .3s var(--ease); }
+.seg button[aria-pressed="true"] { color: #fff; }
+.seg .pill { position: absolute; z-index: 0; top: 0; left: 0; border-radius: 9px; background: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); transition: transform .5s var(--spring), width .5s var(--spring); }
+
+/* ---------- NOVO: trio com número que rola ---------- */
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.trio > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.legend { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.legend i { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+.legend i.dashed { height: 0; border-top: 2px dashed var(--ipca); border-radius: 0; }
+.big { font-size: 18px; font-weight: 800; white-space: nowrap; }
+.big.plain { font-weight: 700; }
+.gain { font-size: 12px; font-weight: 700; }
+
+/* ---------- NOVO: cartões % do CDI / ganho real ---------- */
+.kpi { background: var(--fill); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.kpi .tile-value { font-size: 17px; }
+.gauge { position: relative; height: 6px; border-radius: 3px; background: #e6e6e1; }
+.gauge i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--accent); transition: width .7s var(--spring); }
+.gauge u { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--cdi); }
+.gauge-cap { position: relative; height: 14px; font-size: 10px; color: var(--cdi); font-weight: 700; }
+.gauge-cap span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; transition: left .7s var(--spring); }
+.badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--pos-bg); color: var(--pos); }
+.badge.neg { background: var(--neg-bg); color: var(--neg); }
+
+/* ---------- NOVO: gráfico de área interativo ---------- */
+.chart { position: relative; margin: 0 -4px; touch-action: pan-y; user-select: none; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.axis text { fill: var(--muted); font-size: 10.5px; font-weight: 600; font-family: var(--font); }
+.grid line { stroke: var(--line-2); }
+.zero { stroke: #cfcfc9; }
+.end-pulse { transform-box: fill-box; transform-origin: center; animation: pulse 2s ease-out infinite; }
+@keyframes pulse { 0% { transform: scale(1); opacity: .5; } 100% { transform: scale(3.2); opacity: 0; } }
+.tip {
+  position: absolute; top: -6px; z-index: 5; pointer-events: none; min-width: 150px; padding: 8px 10px; border-radius: 12px;
+  background: var(--card); box-shadow: var(--shadow-pop); font-size: 12px; opacity: 0; transform: translateY(4px) scale(.97);
+  transition: opacity .15s, transform .25s var(--spring);
+}
+.tip.on { opacity: 1; transform: none; }
+.tip .d { color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 12px; align-items: center; line-height: 1.7; }
+.tip .r span { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-weight: 600; }
+.tip .r b { font-weight: 800; }
+.hint-drag { font-size: 11px; color: var(--muted); text-align: center; margin-top: -6px; }
+
+/* ---------- NOVO: mais indicadores (acordeão que desdobra) ---------- */
+.more { margin: 0 -16px -16px; border-top: 1px solid var(--line-2); }
+.more-btn { width: 100%; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; background: none; border: 0; font-size: 14px; font-weight: 700; }
+.chev { display: inline-flex; color: #4a4f57; transition: transform .45s var(--spring); }
+[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.unfold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s var(--ease); }
+.unfold > div { overflow: hidden; min-height: 0; }
+.unfold .inner { opacity: 0; transform: translateY(-8px); transition: opacity .3s, transform .45s var(--ease); }
+.open > .unfold { grid-template-rows: 1fr; }
+.open > .unfold .inner { opacity: 1; transform: none; }
+.more-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line-2); border-top: 1px solid var(--line-2); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+.metric { background: var(--card); padding: 12px 16px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.metric-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.metric-value { font-size: 16px; font-weight: 800; white-space: nowrap; }
+.metric-hint { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- NOVO: alocação com rosca ---------- */
+.alloc { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; }
+.donut { position: relative; width: 112px; height: 112px; }
+.donut svg { width: 100%; height: 100%; overflow: visible; }
+.donut path { cursor: pointer; transition: opacity .25s, transform .35s var(--spring); transform-origin: 64px 64px; }
+.donut.focus path:not(.on) { opacity: .28; }
+.donut path.on { transform: scale(1.05); }
+.donut-mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-mid b { font-size: 14px; font-weight: 800; letter-spacing: -.02em; }
+.donut-mid span { font-size: 11px; color: var(--muted); font-weight: 600; max-width: 76px; line-height: 1.25; }
+.class-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.class-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; font-size: 13px; cursor: pointer; border-radius: 8px; transition: opacity .25s; }
+.class-list.focus li:not(.on) { opacity: .45; }
+.class-list li > i { width: 10px; height: 10px; border-radius: 3px; }
+.class-list li .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.class-list li b { font-weight: 800; }
+.bar { grid-column: 2 / 4; position: relative; height: 6px; border-radius: 3px; background: var(--fill); }
+.bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width .8s var(--spring); }
+.bar u { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--ink); }
+.off-note { grid-column: 2 / 4; font-size: 11px; font-weight: 700; color: var(--warn); }
+.ok-note { grid-column: 2 / 4; font-size: 11px; color: var(--muted); }
+.alloc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); color: #5c3204; font-size: 12px; font-weight: 600; }
+.alloc-foot b { font-weight: 800; }
+
+/* ---------- lista de ativos (como no app) ---------- */
+.list { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; color: var(--ink); min-height: 64px; }
+.row + .row { border-top: 1px solid var(--line-2); }
+.stripe { flex: none; width: 4px; height: 36px; border-radius: 2px; }
+.row-main { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.row-title { font-size: 15px; font-weight: 800; }
+.row-sub { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.row-sub.strong { font-weight: 700; }
+.row-sub.pos { color: var(--pos); }
+.row-sub.neg { color: var(--neg); }
+.row-end { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.row-value { font-size: 15px; font-weight: 700; white-space: nowrap; }
+.row .go { color: #9a9ea5; display: inline-flex; }
+.footnote { font-size: 11px; color: var(--muted); text-align: center; padding: 4px 16px 8px; line-height: 1.5; }
+
+/* ---------- barra de abas (como no app) ---------- */
+.tabbar { z-index: 20; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--card); border-top: 1px solid var(--line); padding: 4px 4px calc(8px + env(safe-area-inset-bottom, 0px)); }
+.tabbar a { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; color: var(--muted); font-size: 11px; font-weight: 600; }
+.tabbar a[aria-current="page"] { color: var(--ink); font-weight: 800; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="device" id="device">
+    <div class="notch" aria-hidden="true"></div>
+    <div class="status" aria-hidden="true"><span>18:31</span><i><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg><svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3.5" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor"/><rect x="23" y="4" width="1.6" height="4" rx=".8" fill="currentColor" opacity=".4"/></svg></i></div>
+
+    <div class="scroll" id="scroll">
+      <div class="screen">
+        <header class="screen-head">
+          <div>
+            <h1>Minha carteira</h1>
+            <span class="muted small">Exemplo · atualizado 18:31</span>
+          </div>
+          <button class="icon-btn" id="refresh" aria-label="Atualizar cotações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+        </header>
+
+        <section class="hero">
+          <span class="label">Patrimônio <button class="eye-btn" id="eye" aria-label="Ocultar valores" aria-pressed="false"></button></span>
+          <span class="hero-value money" id="heroValue"></span>
+          <div class="today" id="today"></div>
+          <div class="duo">
+            <div class="tile white"><span class="tile-label">Total investido</span><span class="tile-value money" id="invested"></span></div>
+            <div class="tile white"><span class="tile-label">Lucro</span><span class="tile-value money pos" id="profit"></span></div>
+          </div>
+        </section>
+
+        <!-- Rentabilidade (novo visual) -->
+        <section class="card" id="returns">
+          <div class="card-head"><h2>Rentabilidade</h2><span class="muted small" id="range"></span></div>
+          <div class="seg" id="periods" role="group" aria-label="Período"><span class="pill"></span></div>
+          <div class="trio">
+            <div><span class="legend"><i style="background:var(--accent)"></i>Carteira</span><span class="big" id="rPort"></span><span class="gain money" id="rGain"></span></div>
+            <div><span class="legend"><i style="background:var(--cdi)"></i>CDI</span><span class="big plain" id="rCdi"></span></div>
+            <div><span class="legend"><i class="dashed"></i>IPCA</span><span class="big plain" id="rIpca"></span></div>
+          </div>
+          <div class="duo">
+            <div class="kpi">
+              <span class="tile-label">% do CDI</span>
+              <span class="tile-value" id="pctCdi"></span>
+              <div class="gauge" aria-hidden="true"><i id="gaugeFill"></i><u id="gaugeMark"></u></div>
+              <div class="gauge-cap"><span id="gaugeCap">100% do CDI</span></div>
+            </div>
+            <div class="kpi">
+              <span class="tile-label">Ganho real</span>
+              <span class="tile-value" id="real"></span>
+              <span class="badge" id="realBadge"></span>
+            </div>
+          </div>
+          <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+          <p class="hint-drag">Arraste para os lados para ver cada data</p>
+          <div class="more" id="more">
+            <button class="more-btn" aria-expanded="false" aria-controls="moreBody">Mais indicadores<span class="chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></button>
+            <div class="unfold" id="moreBody"><div><div class="inner"><div class="more-grid" id="moreGrid"></div></div></div></div>
+          </div>
+        </section>
+
+        <!-- Alocação (novo visual) -->
+        <section class="card" id="allocCard">
+          <div class="card-head"><h2>Alocação</h2><span class="muted small">por classe · toque para destacar</span></div>
+          <div class="alloc">
+            <div class="donut" id="donut"></div>
+            <ul class="class-list" id="classList"></ul>
+          </div>
+          <div class="alloc-foot" id="allocFoot"></div>
+        </section>
+
+        <!-- Ativos (como hoje) -->
+        <section style="display:flex;flex-direction:column;gap:12px">
+          <div class="section-head"><h2>Ativos</h2><span class="muted small">5 posições</span></div>
+          <div class="list" id="assets"></div>
+          <p class="footnote">Dados de exemplo · rentabilidade por cotas (TWR), sem IR</p>
+        </section>
+      </div>
+    </div>
+
+    <nav class="tabbar" aria-label="Navegação">
+      <a href="#carteira" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Carteira</a>
+      <a href="#carteira"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>Análise</a>
+      <a href="#carteira"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>Lançar</a>
+      <a href="#carteira"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10"/><path d="M18 7h2"/><circle cx="16" cy="7" r="2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="8" cy="17" r="2"/></svg>Ajustes</a>
+    </nav>
+  </div>
+
+  <aside class="notes">
+    <h1>Carteira no celular</h1>
+    <p>A tela continua a mesma de hoje. Só os blocos de rentabilidade e alocação ganham os elementos do EasyUI, com as cores do app.</p>
+    <div class="note-card">
+      <b>Rentabilidade</b>
+      <ul>
+        <li>Seletor de período com indicador que desliza</li>
+        <li>Números que rolam ao trocar o período</li>
+        <li>Gráfico de área com transição entre períodos</li>
+        <li>Arrastar mostra data, carteira, CDI, IPCA e patrimônio</li>
+        <li>% do CDI com barra até a marca de 100%</li>
+        <li>"Mais indicadores" desdobra em vez de pular</li>
+      </ul>
+    </div>
+    <div class="note-card">
+      <b>Alocação</b>
+      <ul>
+        <li>Rosca por classe com as cores do app</li>
+        <li>Barra de cada classe com a marca da meta</li>
+        <li>Toque numa classe para destacar e ver o valor</li>
+        <li>Aviso de quanto falta para voltar à meta</li>
+      </ul>
+    </div>
+    <p class="kept">Cabeçalho, patrimônio, lista de ativos e barra de abas seguem como estão no app.</p>
+  </aside>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- formatação (igual ao app) ---------- */
+const fBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const brl = (v) => fBRL.format(v);
+const brlS = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fBRL.format(Math.abs(v));
+const num = (v, d) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const pct = (v, d = 2) => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v * 100), d) + '%';
+const tone = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '');
+const MON = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const dBR = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+const mLbl = (d) => `${MON[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+const dLbl = (d) => `${d.getDate()} ${MON[d.getMonth()]}`;
+
+/* ---------- carteira de exemplo ---------- */
+function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry32(888);
+const gauss = () => { let u = 0, v = 0; while (!u) u = rnd(); while (!v) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const ASSETS = [
+  { t: 'WRLD11', cls: 'RV Internacional', w: .40, mu: .00042, vol: .009, p0: 98.4 },
+  { t: 'B5P211', cls: 'RF Brasil', w: .25, mu: .00036, vol: .0022, p0: 81.2 },
+  { t: 'IVVB11', cls: 'RV Internacional', w: .15, mu: .00045, vol: .010, p0: 268.9 },
+  { t: 'BOVA11', cls: 'RV Brasil', w: .12, mu: .00020, vol: .012, p0: 127.3 },
+  { t: 'HGLG11', cls: 'FIIs', w: .08, mu: .00016, vol: .008, p0: 162.5 },
+];
+const CLASSES = [
+  { name: 'RV Internacional', target: .50, color: 'var(--c-rvi)' },
+  { name: 'RF Brasil', target: .30, color: 'var(--c-rfb)' },
+  { name: 'RV Brasil', target: .12, color: 'var(--c-rvb)' },
+  { name: 'FIIs', target: .08, color: 'var(--c-fii)' },
+];
+const MONTHLY = 1500;
+const days = [];
+for (let d = new Date(2024, 0, 2); d <= new Date(2026, 9, 23); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) if (d.getDay() % 6) days.push(d);
+const N = days.length, last = N - 1;
+const prices = ASSETS.map((a) => { const p = [a.p0]; for (let i = 1; i < N; i++) p.push(p[i - 1] * Math.exp(a.mu - a.vol * a.vol / 2 + a.vol * gauss())); return p; });
+const units = ASSETS.map(() => 0), costs = ASSETS.map(() => 0), cash = ASSETS.map(() => 0);
+const idx = [], cdi = [], ipca = [], value = [], invested = [];
+const cdiDaily = Math.pow(1.1135, 1 / 252), ipcaM = {}, biz = {};
+days.forEach((d) => { const k = d.getFullYear() * 12 + d.getMonth(); biz[k] = (biz[k] || 0) + 1; });
+let inv = 0, lastMonth = -1;
+for (let i = 0; i < N; i++) {
+  const d = days[i];
+  if (!i) { idx.push(1); cdi.push(1); ipca.push(1); }
+  else {
+    const prev = ASSETS.reduce((s, _, j) => s + units[j] * prices[j][i - 1], 0);
+    const now = ASSETS.reduce((s, _, j) => s + units[j] * prices[j][i], 0);
+    idx.push(idx[i - 1] * (prev ? now / prev : 1));
+    cdi.push(cdi[i - 1] * cdiDaily);
+    const k = d.getFullYear() * 12 + d.getMonth();
+    if (!(k in ipcaM)) ipcaM[k] = .0036 + gauss() * .0016;
+    ipca.push(ipca[i - 1] * Math.pow(1 + ipcaM[k], 1 / biz[k]));
+  }
+  if (d.getMonth() !== lastMonth) {
+    lastMonth = d.getMonth();
+    ASSETS.forEach((a, j) => {
+      cash[j] += MONTHLY * a.w;
+      const q = Math.floor(cash[j] / prices[j][i]);
+      if (q > 0) { units[j] += q; const c = q * prices[j][i]; cash[j] -= c; costs[j] += c; inv += c; }
+    });
+  }
+  invested.push(inv);
+  value.push(ASSETS.reduce((s, _, j) => s + units[j] * prices[j][i], 0));
+}
+const total = value[last];
+const holdings = ASSETS.map((a, j) => ({ ...a, value: units[j] * prices[j][last], result: units[j] * prices[j][last] / costs[j] - 1 }));
+const todayAbs = ASSETS.reduce((s, _, j) => s + units[j] * (prices[j][last] - prices[j][last - 1]), 0);
+
+const PERIODS = [
+  { id: '1M', label: '1M', n: 21 }, { id: '6M', label: '6M', n: 126 }, { id: '12M', label: '12M', n: 252 },
+  { id: '24M', label: '24M', n: 504 }, { id: 'YTD', label: 'Ano', start: days.findIndex((d) => d.getFullYear() === 2026) }, { id: 'MAX', label: 'Máx', start: 0 },
+];
+const startOf = (p) => (p.start != null ? p.start : Math.max(0, last - p.n));
+
+/* ---------- valores ocultos ---------- */
+let hide = false;
+const EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2"/><path d="M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>';
+function applyHide() {
+  $('#eye').innerHTML = hide ? EYE_OFF : EYE;
+  $('#eye').setAttribute('aria-pressed', hide);
+  $$('.money').forEach((m) => m.classList.toggle('masked', hide));
+}
+$('#eye').addEventListener('click', () => { hide = !hide; applyHide(); });
+$('#refresh').addEventListener('click', (e) => { const b = e.currentTarget; b.classList.add('busy'); setTimeout(() => b.classList.remove('busy'), 1200); });
+
+/* ---------- topo (como no app) ---------- */
+$('#heroValue').textContent = brl(total);
+const tp = idx[last] / idx[last - 1] - 1;
+$('#today').className = 'today ' + tone(todayAbs);
+$('#today').innerHTML = `<span class="chip">${todayAbs < 0 ? '↓' : '↑'} ${pct(tp)} hoje</span><span class="money">${brlS(todayAbs)}</span>`;
+$('#invested').textContent = brl(inv);
+$('#profit').textContent = brlS(total - inv);
+
+/* ---------- números que rolam ---------- */
+function tween(el, to, fmt, ms = 650) {
+  const from = el._v ?? to * .9;
+  el._v = to;
+  if (reduce) { el.textContent = fmt(to); return; }
+  const t0 = performance.now();
+  const step = (now) => { const t = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - t, 3); el.textContent = fmt(from + (to - from) * e); if (t < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+
+/* ---------- gráfico de área ---------- */
+const SERIES = [
+  { key: 'port', label: 'Carteira', arr: idx, color: 'var(--accent)', w: 2.5 },
+  { key: 'cdi', label: 'CDI', arr: cdi, color: 'var(--cdi)', w: 1.75 },
+  { key: 'ipca', label: 'IPCA', arr: ipca, color: 'var(--ipca)', w: 1.5, dash: '4 4' },
+];
+const RES = 90;
+const chartEl = $('#chart');
+const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+svg.setAttribute('role', 'img');
+chartEl.prepend(svg);
+let W = 330, H = 210, cur = null, src = null, raf = 0;
+const pad = { l: 38, r: 10, t: 10, b: 22 };
+function spline(p) {
+  let d = `M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const a = p[i - 1] || p[i], b = p[i], c = p[i + 1], e = p[i + 2] || c;
+    d += `C${(b[0] + (c[0] - a[0]) / 6).toFixed(1)},${(b[1] + (c[1] - a[1]) / 6).toFixed(1)} ${(c[0] - (e[0] - b[0]) / 6).toFixed(1)},${(c[1] - (e[1] - b[1]) / 6).toFixed(1)} ${c[0].toFixed(1)},${c[1].toFixed(1)}`;
+  }
+  return d;
+}
+function ticks(min, max) {
+  const s0 = (max - min || .01) / 4, m = Math.pow(10, Math.floor(Math.log10(s0)));
+  const st = [1, 2, 2.5, 5, 10].map((k) => k * m).find((k) => k >= s0);
+  const out = []; for (let v = Math.floor(min / st) * st; v <= max + st * .001; v += st) out.push(+v.toFixed(10));
+  return out;
+}
+function sample(p) {
+  const s = startOf(p), map = [];
+  for (let k = 0; k < RES; k++) map.push(Math.round(s + k / (RES - 1) * (last - s)));
+  return { s, map, ys: SERIES.map((se) => map.map((i) => se.arr[i] / se.arr[s] - 1)), long: last - s > 45 };
+}
+function draw() {
+  const ys = cur, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const tk = ticks(Math.min(0, ...ys.flat()), Math.max(0, ...ys.flat()));
+  const min = tk[0], max = tk[tk.length - 1];
+  const x = (k) => pad.l + k / (RES - 1) * iw, y = (v) => pad.t + (1 - (v - min) / (max - min)) * ih;
+  const pts = ys.map((a) => a.map((v, k) => [x(k), y(v)]));
+  const port = spline(pts[0]);
+  const xt = [0, Math.round((RES - 1) / 3), Math.round(2 * (RES - 1) / 3), RES - 1];
+  const step = tk[1] - tk[0];
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('height', H);
+  svg.innerHTML = `
+    <defs><linearGradient id="fillPort" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f4fd1" stop-opacity=".22"/><stop offset="1" stop-color="#1f4fd1" stop-opacity="0"/></linearGradient></defs>
+    <g class="grid">${tk.map((t) => `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(t)}" y2="${y(t)}"/>`).join('')}</g>
+    <line class="zero" x1="${pad.l}" x2="${W - pad.r}" y1="${y(0)}" y2="${y(0)}"/>
+    <g class="axis">${tk.map((t) => `<text x="${pad.l - 6}" y="${y(t) + 3.5}" text-anchor="end">${t > 0 ? '+' : t < 0 ? '−' : ''}${num(Math.abs(t * 100), step < .01 ? 1 : 0)}%</text>`).join('')}
+      ${xt.map((k, n) => `<text x="${x(k)}" y="${H - 4}" text-anchor="${n === 0 ? 'start' : n === 3 ? 'end' : 'middle'}">${n === 3 ? 'hoje' : (src.long ? mLbl : dLbl)(days[src.map[k]])}</text>`).join('')}</g>
+    <path d="${port} L${x(RES - 1)},${y(min)} L${x(0)},${y(min)} Z" fill="url(#fillPort)"/>
+    ${SERIES.map((se, n) => `<path d="${n ? spline(pts[n]) : port}" fill="none" stroke="${se.color}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linecap="round" stroke-linejoin="round"/>`).reverse().join('')}
+    <circle class="end-pulse" cx="${x(RES - 1)}" cy="${pts[0][RES - 1][1]}" r="4" fill="var(--accent)"/>
+    <circle cx="${x(RES - 1)}" cy="${pts[0][RES - 1][1]}" r="4" fill="var(--accent)" stroke="#fff" stroke-width="2"/>
+    <g id="cross" style="display:none"><line y1="${pad.t}" y2="${H - pad.b}" stroke="#b9b9b3" stroke-dasharray="3 3"/>${SERIES.map((se) => `<circle r="4.5" fill="${se.color}" stroke="#fff" stroke-width="2"/>`).join('')}</g>`;
+  svg._g = { x, y, iw };
+}
+function resize() { const w = chartEl.clientWidth; if (!w) return; W = w; if (cur) draw(); }
+new ResizeObserver(resize).observe(chartEl);
+
+function hover(e) {
+  if (!svg._g) return;
+  const r = svg.getBoundingClientRect();
+  const k = Math.max(0, Math.min(RES - 1, Math.round(((e.clientX - r.left) * (W / r.width) - pad.l) / svg._g.iw * (RES - 1))));
+  const cx = svg._g.x(k), g = $('#cross', svg);
+  g.style.display = ''; $('line', g).setAttribute('x1', cx); $('line', g).setAttribute('x2', cx);
+  $$('circle', g).forEach((c, n) => { c.setAttribute('cx', cx); c.setAttribute('cy', svg._g.y(cur[n][k])); });
+  const i = src.map[k], tip = $('#tip');
+  tip.innerHTML = `<div class="d">${dBR(days[i])}</div>` + SERIES.map((se, n) => `<div class="r"><span><i style="width:10px;height:3px;border-radius:2px;background:${se.color}"></i>${se.label}</span><b class="${n ? '' : tone(cur[n][k])}">${pct(cur[n][k])}</b></div>`).join('')
+    + `<div class="r"><span>Patrimônio</span><b class="${hide ? 'masked' : ''}">${brl(value[i])}</b></div>`;
+  const left = cx / W * r.width;
+  tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, left + (left > r.width / 2 ? -tip.offsetWidth - 12 : 12))) + 'px';
+  tip.classList.add('on');
+}
+function leave() { $('#tip').classList.remove('on'); const g = $('#cross', svg); if (g) g.style.display = 'none'; }
+svg.addEventListener('pointermove', hover);
+svg.addEventListener('pointerdown', hover);
+svg.addEventListener('pointerleave', leave);
+svg.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') leave(); });
+
+/* ---------- período ---------- */
+function setPeriod(id) {
+  const p = PERIODS.find((q) => q.id === id);
+  const next = sample(p), s = next.s;
+  const span = (last - s) * 365 / 252, ann = span > 366;
+  const yrs = span / 365, show = (r) => (ann ? Math.pow(1 + r, 1 / yrs) - 1 : r);
+  const r = idx[last] / idx[s] - 1, c = cdi[last] / cdi[s] - 1, ip = ipca[last] / ipca[s] - 1;
+  const gain = value[last] - value[s] - (invested[last] - invested[s]);
+  $('#range').textContent = (id === '1M' ? 'últimos 30 dias' : id === 'YTD' ? '2026 até hoje' : id === 'MAX' ? 'desde jan/24' : `${mLbl(new Date(2026 - (p.n > 300 ? 2 : 1), 9, 1))} → hoje`) + (ann ? ' · ao ano' : '');
+  const rp = $('#rPort'); rp.className = 'big ' + tone(r);
+  tween(rp, show(r), (v) => pct(v));
+  tween($('#rCdi'), show(c), (v) => pct(v));
+  tween($('#rIpca'), show(ip), (v) => pct(v));
+  $('#rGain').className = 'gain money ' + tone(gain) + (hide ? ' masked' : '');
+  tween($('#rGain'), gain, brlS);
+  const ratio = r / c;
+  tween($('#pctCdi'), ratio, (v) => num(v * 100, 0) + '%');
+  const scale = Math.max(1.5, ratio * 1.1);
+  $('#gaugeFill').style.width = Math.max(0, Math.min(100, ratio / scale * 100)) + '%';
+  $('#gaugeMark').style.left = `calc(${100 / scale}% - 1px)`;
+  $('#gaugeCap').style.left = `${100 / scale}%`;
+  const real = (1 + show(r)) / (1 + show(ip)) - 1;
+  $('#real').textContent = `IPCA ${real < 0 ? '−' : '+'} ${num(Math.abs(real * 100), 2)}%`;
+  const rb = $('#realBadge'); rb.className = 'badge ' + (real < 0 ? 'neg' : ''); rb.textContent = real < 0 ? 'abaixo da inflação' : 'acima da inflação';
+  moreGrid(s);
+  svg.setAttribute('aria-label', `Rentabilidade: carteira ${pct(r)}, CDI ${pct(c)}, IPCA ${pct(ip)}`);
+  const from = cur; src = next;
+  if (!from || reduce) { cur = next.ys; draw(); return; }
+  cancelAnimationFrame(raf);
+  const t0 = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - t0) / 650), e = 1 - Math.pow(1 - t, 3);
+    cur = next.ys.map((a, n) => a.map((v, k) => from[n][k] + (v - from[n][k]) * e));
+    draw(); if (t < 1) raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+}
+const seg = $('#periods');
+seg.insertAdjacentHTML('beforeend', PERIODS.map((p) => `<button type="button" data-p="${p.id}" aria-pressed="${p.id === '12M'}">${p.label}</button>`).join(''));
+const placePill = () => { const b = $('[aria-pressed="true"]', seg), pill = $('.pill', seg); pill.style.width = b.offsetWidth + 'px'; pill.style.height = b.offsetHeight + 'px'; pill.style.transform = `translate(${b.offsetLeft}px, ${b.offsetTop}px)`; };
+seg.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  $$('button', seg).forEach((x) => x.setAttribute('aria-pressed', x === b));
+  placePill(); setPeriod(b.dataset.p);
+});
+
+/* ---------- mais indicadores ---------- */
+function moreGrid(s) {
+  const dr = []; for (let i = s + 1; i <= last; i++) dr.push(idx[i] / idx[i - 1] - 1);
+  const m = dr.reduce((a, b) => a + b, 0) / dr.length;
+  const vol = Math.sqrt(dr.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, dr.length - 1)) * Math.sqrt(252);
+  let peak = 0, mdd = 0, at = s; for (let i = s; i <= last; i++) { peak = Math.max(peak, idx[i]); if (idx[i] / peak - 1 < mdd) { mdd = idx[i] / peak - 1; at = i; } }
+  const months = []; let pe = s;
+  for (let i = s + 1; i <= last; i++) if (i === last || days[i + 1].getMonth() !== days[i].getMonth()) { months.push({ d: days[i], r: idx[i] / idx[pe] - 1 }); pe = i; }
+  const best = months.reduce((a, b) => (b.r > a.r ? b : a)), worst = months.reduce((a, b) => (b.r < a.r ? b : a));
+  const yrs = (last - s) / 252, rA = Math.pow(idx[last] / idx[s], 1 / yrs) - 1, cA = Math.pow(cdi[last] / cdi[s], 1 / yrs) - 1;
+  const sharpe = yrs >= .45 ? (rA - cA) / vol : null;
+  const M = (l, v, h, c = '') => `<div class="metric"><span class="metric-label">${l}</span><span class="metric-value ${c}">${v}</span><span class="metric-hint">${h}</span></div>`;
+  $('#moreGrid').innerHTML = [
+    M('Max drawdown', pct(mdd), mdd < 0 ? `fundo em ${dLbl(days[at])}` : 'sem queda no período', 'neg'),
+    M('Volatilidade a.a.', num(vol * 100, 1) + '%', 'oscilação diária'),
+    M('Índice de Sharpe', sharpe == null ? '—' : (sharpe > 0 ? '+' : '−') + num(Math.abs(sharpe), 2), sharpe == null ? 'a partir de 6M' : 'retorno vs CDI ÷ risco', tone(sharpe || 0)),
+    M('Meses positivos', `${months.filter((x) => x.r > 0).length} de ${months.length}`, 'no período'),
+    M('Melhor mês', pct(best.r), mLbl(best.d), 'pos'),
+    M('Pior mês', pct(worst.r), mLbl(worst.d), tone(worst.r)),
+  ].join('');
+}
+$('#more .more-btn').addEventListener('click', (e) => {
+  const o = !$('#more').classList.contains('open');
+  $('#more').classList.toggle('open', o); e.currentTarget.setAttribute('aria-expanded', o);
+});
+
+/* ---------- alocação ---------- */
+const alloc = CLASSES.map((c) => { const v = holdings.filter((h) => h.cls === c.name).reduce((s, h) => s + h.value, 0); return { ...c, value: v, weight: v / total }; });
+function renderAlloc() {
+  const R = 62, r = 42, c = 64, gap = .035;
+  const arc = (s, e) => {
+    const P = (a, rad) => `${(c + rad * Math.cos(a)).toFixed(2)},${(c + rad * Math.sin(a)).toFixed(2)}`, lg = e - s > Math.PI ? 1 : 0;
+    return `M${P(s, R)} A${R},${R} 0 ${lg} 1 ${P(e, R)} L${P(e, r)} A${r},${r} 0 ${lg} 0 ${P(s, r)} Z`;
+  };
+  let a0 = -Math.PI / 2;
+  const paths = alloc.map((a, n) => { const s = a0 + gap / 2, e = a0 + a.weight * 2 * Math.PI - gap / 2; a0 += a.weight * 2 * Math.PI; return `<path data-n="${n}" d="${arc(s, e)}" fill="${a.color}"><title>${a.name}</title></path>`; });
+  const mid = (i) => (i == null
+    ? `<b class="money ${hide ? 'masked' : ''}">R$ ${Math.round(total / 1000)} mil</b><span>4 classes</span>`
+    : `<b>${num(alloc[i].weight * 100, 1)}%</b><span>${alloc[i].name}</span>`);
+  $('#donut').innerHTML = `<svg viewBox="0 0 128 128" role="img" aria-label="Alocação por classe">${paths.join('')}</svg><div class="donut-mid">${mid()}</div>`;
+  $('#classList').innerHTML = alloc.map((a, n) => {
+    const diff = a.weight - a.target, off = Math.abs(diff) >= .05;
+    return `<li data-n="${n}" tabindex="0"><i style="background:${a.color}"></i><span class="nm">${a.name}</span><b>${num(a.weight * 100, 1)}%</b>
+      <span class="bar"><i style="width:0;background:${a.color}" data-w="${Math.min(100, a.weight * 100)}"></i><u style="left:calc(${a.target * 100}% - 1px)"></u></span>
+      <span class="${off ? 'off-note' : 'ok-note'}">alvo ${num(a.target * 100, 0)}%${off ? ` · ${diff > 0 ? 'acima' : 'abaixo'} ${num(Math.abs(diff) * 100, 1)} p.p.` : ''}</span></li>`;
+  }).join('');
+  requestAnimationFrame(() => $$('#classList .bar i').forEach((b) => (b.style.width = b.dataset.w + '%')));
+  const under = alloc.filter((a) => a.weight < a.target).sort((a, b) => (b.target - b.weight) - (a.target - a.weight))[0];
+  $('#allocFoot').innerHTML = under
+    ? `<span>Próximo aporte: priorize <b>${under.name}</b></span><b class="money">${brl((under.target - under.weight) * total)}</b>`
+    : '<span>Todas as classes dentro da meta</span>';
+  let pinned = null;
+  const focus = (i) => {
+    $('#donut').classList.toggle('focus', i != null); $('#classList').classList.toggle('focus', i != null);
+    $$('#donut path').forEach((p) => p.classList.toggle('on', +p.dataset.n === i));
+    $$('#classList li').forEach((l) => l.classList.toggle('on', +l.dataset.n === i));
+    $('.donut-mid').innerHTML = mid(i);
+  };
+  const pick = (e) => { const t = e.target.closest('[data-n]'); if (!t) return; const n = +t.dataset.n; pinned = pinned === n ? null : n; focus(pinned); };
+  $('#donut').addEventListener('click', pick);
+  $('#classList').addEventListener('click', pick);
+  $('#classList').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e); } });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#allocCard') && pinned != null) { pinned = null; focus(null); } });
+}
+
+/* ---------- ativos (como no app) ---------- */
+const colorOf = (cls) => CLASSES.find((c) => c.name === cls).color;
+$('#assets').innerHTML = holdings.slice().sort((a, b) => b.value - a.value).map((h) => `
+  <a class="row" href="#carteira">
+    <span class="stripe" style="background:${colorOf(h.cls)}"></span>
+    <span class="row-main"><span class="row-title">${h.t}</span><span class="row-sub">${h.cls} · ${num(h.value / total * 100, 1)}%</span></span>
+    <span class="row-end"><span class="row-value money">${brl(h.value)}</span><span class="row-sub strong ${tone(h.result)}">${pct(h.result)}</span></span>
+    <span class="go"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+  </a>`).join('');
+document.addEventListener('click', (e) => { const a = e.target.closest('a[href="#carteira"]'); if (a) e.preventDefault(); });
+
+/* ---------- início ---------- */
+renderAlloc();
+resize();
+setPeriod('12M');
+applyHide();
+requestAnimationFrame(placePill);
+addEventListener('resize', placePill);
+document.fonts && document.fonts.ready.then(placePill);
+})();
+</script>
+</body>
+</html>
