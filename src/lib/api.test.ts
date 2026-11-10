@@ -31,6 +31,30 @@ describe('Yahoo (scripts/quotes.mjs)', () => {
     expect(q.name).toBe('Investo FTSE Global');
   });
 
+  it('completa o último pregão pelo meta quando o candle diário ainda não saiu', async () => {
+    const day = (d: number) => Date.UTC(2026, 10, d, 13) / 1000;
+    const body = (marketDay: number) => ({
+      chart: {
+        result: [{
+          // fechamento de 09/11 às 18h15 de Brasília
+          meta: { gmtoffset: -10800, regularMarketPrice: 155.65, regularMarketTime: Date.UTC(2026, 10, marketDay, 21, 15) / 1000 },
+          timestamp: [day(5), day(6)],
+          indicators: { quote: [{ close: [150, 151.6] }], adjclose: [{ adjclose: [150, 151.6] }] },
+        }],
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => json(200, body(9))));
+    const q = await fetchYahoo('WRLD11');
+    expect(q.points.map((p) => p.date)).toEqual(['2026-11-05', '2026-11-06', '2026-11-09']);
+    expect(q.price).toBe(155.65);
+    expect(q.points[2].adj).toBe(155.65);
+    expect(q.changePct).toBeCloseTo(155.65 / 151.6 - 1, 10);
+
+    // meta do mesmo dia do último candle: nada muda
+    vi.stubGlobal('fetch', vi.fn(async () => json(200, body(6))));
+    expect((await fetchYahoo('WRLD11')).points.map((p) => p.date)).toEqual(['2026-11-05', '2026-11-06']);
+  });
+
   it('mostra a mensagem do Yahoo quando o ticker não existe', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json(404, { chart: { result: null, error: { description: 'No data found, symbol may be delisted' } } })));
     await expect(fetchYahoo('XXXX11')).rejects.toThrow('No data found');
