@@ -4,9 +4,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-  # republica com as cotações do dia, após o fechamento da B3 (18h30 de Brasília, seg–sex)
+  # republica com as cotações do dia, após o fechamento da B3 (18h30 de Brasília, seg–sex),
+  # e de novo na manhã seguinte (8h, ter–sáb): o cron do GitHub costuma atrasar horas e o
+  # Yahoo às vezes só fecha o candle do dia de madrugada
   schedule:
     - cron: '30 21 * * 1-5'
+    - cron: '0 11 * * 2-6'
 
 permissions:
   contents: read

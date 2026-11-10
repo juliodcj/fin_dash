@@ -41,6 +41,15 @@ export async function fetchYahoo(ticker) {
     byDate.set(date, { date, close: r4(c), adj: r4(a) });
   });
   const points = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+  // O Yahoo às vezes demora horas para incluir o candle diário do último pregão na série
+  // (ex.: à 0h40 de 10/11 a série ia só até 06/11), mas o fechamento já vem no meta.
+  const mp = r.meta?.regularMarketPrice;
+  const mt = r.meta?.regularMarketTime;
+  const tail = points[points.length - 1];
+  if (typeof mp === 'number' && mp > 0 && typeof mt === 'number' && tail) {
+    const date = new Date((mt + offset) * 1000).toISOString().slice(0, 10);
+    if (date > tail.date) points.push({ date, close: r4(mp), adj: r4(mp * (tail.adj / tail.close)) });
+  }
   const last = points[points.length - 1];
   if (!last) throw new Error('sem cotação disponível');
   const prev = points[points.length - 2];
